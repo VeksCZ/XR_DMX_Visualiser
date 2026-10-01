@@ -53,6 +53,7 @@ public class GigBar : MonoBehaviour
         }
         parL = Make<ParLight>("Par L", new Vector3(-parX, -0.08f, 0.02f), new Vector3(parTilt, 0, 0));
         parR = Make<ParLight>("Par R", new Vector3(parX, -0.08f, 0.02f), new Vector3(parTilt, 0, 0));
+        parL.ledCount = parR.ledCount = 3;   // kulaté pary se 3 LED do trojúhelníku
         parL.Build(); parR.Build();
 
         // Laser nahoře na tyči jako derby, ale nízko u tyče

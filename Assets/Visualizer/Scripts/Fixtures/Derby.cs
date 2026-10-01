@@ -15,6 +15,7 @@ public class Derby : MonoBehaviour
     public float beamLength = 6f;
     [Tooltip("Derby má jen 6,5 W LED, paprsky jsou v reálu slabé")]
     public float brightness = 0.2f;
+    public int lensCols = 7, lensRows = 3;
 
     Transform rotor;
     Renderer[] beams;
@@ -27,12 +28,13 @@ public class Derby : MonoBehaviour
     {
         var m = VisUtil.BodyMat;
         VisUtil.Prim(PrimitiveType.Cube, transform, new Vector3(0, 0, -0.04f), new Vector3(0.11f, 0.1f, 0.08f), m);
-        // čelo: 2 řady × 5 čoček, každá ukazuje směs aktuálně svítících LED
-        lensArr = new Renderer[10];
-        for (int r = 0; r < 2; r++)
-            for (int c = 0; c < 5; c++)
-                lensArr[r * 5 + c] = VisUtil.Emitter(PrimitiveType.Sphere, transform,
-                    new Vector3(-0.04f + c * 0.02f, r == 0 ? 0.012f : -0.012f, 0f), new Vector3(0.017f, 0.017f, 0.008f));
+        // čelo: mřížka čoček (GigBar derby 7 × 3), každá ukazuje směs aktuálně svítících LED
+        lensArr = new Renderer[lensCols * lensRows];
+        const float pitch = 0.014f;
+        for (int r = 0; r < lensRows; r++)
+            for (int c = 0; c < lensCols; c++)
+                lensArr[r * lensCols + c] = VisUtil.Emitter(PrimitiveType.Sphere, transform,
+                    new Vector3((c - (lensCols - 1) * 0.5f) * pitch, ((lensRows - 1) * 0.5f - r) * pitch, 0f), new Vector3(0.012f, 0.012f, 0.006f));
         lens = lensArr[0];
 
         rotor = new GameObject("Rotor").transform;
