@@ -156,15 +156,57 @@ MonoBehaviour:
   scene: {fileID: 0}
   demo: {fileID: 0}
   forceDemo: 0
-  gigbarUniverse: 0
-  gigbarAddress: 200
-  parUniverse: 0
-  parAddresses: 6e00000078000000820000008c000000
-  tubeUniverse: 0
-  tubeAddresses: 2c0100005e01000090010000c2010000
-  tubeMode: 0
-  hazeUniverse: 0
-  hazeAddress: 100
+  fixtures:
+  - type: 0
+    name: GigBar
+    universe: 1
+    address: 200
+    mode40ch: 0
+  - type: 1
+    name: Uplight 1
+    universe: 1
+    address: 110
+    mode40ch: 0
+  - type: 1
+    name: Uplight 2
+    universe: 1
+    address: 120
+    mode40ch: 0
+  - type: 1
+    name: Uplight 3
+    universe: 1
+    address: 130
+    mode40ch: 0
+  - type: 1
+    name: Uplight 4
+    universe: 1
+    address: 140
+    mode40ch: 0
+  - type: 2
+    name: Tuba 1
+    universe: 1
+    address: 300
+    mode40ch: 0
+  - type: 2
+    name: Tuba 2
+    universe: 1
+    address: 350
+    mode40ch: 0
+  - type: 2
+    name: Tuba 3
+    universe: 1
+    address: 400
+    mode40ch: 0
+  - type: 2
+    name: Tuba 4
+    universe: 1
+    address: 450
+    mode40ch: 0
+  - type: 3
+    name: Hurricane Haze 1DX
+    universe: 1
+    address: 100
+    mode40ch: 0
   hazeBuildRate: 0.08
   hazeDecay: 0.01
   hazeDensity: 0.3
@@ -184,8 +226,10 @@ MonoBehaviour:
   nodeName: DJ Visualizer
   port: 6454
   packetsReceived: 0
+  pollsAnswered: 0
   lastPacketTime: -999
   lastSender: 
+  bindInfo: 
 --- !u!114 &176753528
 MonoBehaviour:
   m_ObjectHideFlags: 0

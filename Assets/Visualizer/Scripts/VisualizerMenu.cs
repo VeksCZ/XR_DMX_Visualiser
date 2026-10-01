@@ -1,20 +1,17 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
 
-// Nastavení, která se ukládají vedle aplikace (persistentDataPath/settings.json).
+// Nastavení ukládané do persistentDataPath/settings.json (přežije restart i nový build).
 [Serializable]
 public class VisualizerSettings
 {
-    public int universe = 0;
-    public int gigbarAddress = 200;
-    public int[] parAddresses = { 110, 120, 130, 140 };
-    public int[] tubeAddresses = { 300, 350, 400, 450 };
-    public int hazeAddress = 100;
-    public bool tube40ch = false;
+    public int version = 2;
+    public List<FixtureEntry> fixtures;
     public float hazeBuildRate = 0.08f;
     public float hazeDecay = 0.01f;
     public int cameraPreset = 0;
@@ -24,16 +21,15 @@ public class VisualizerSettings
 
     public static VisualizerSettings Load()
     {
+        VisualizerSettings s = null;
         try
         {
-            if (File.Exists(FilePath))
-            {
-                var s = JsonUtility.FromJson<VisualizerSettings>(File.ReadAllText(FilePath));
-                if (s != null) return s;
-            }
+            if (File.Exists(FilePath)) s = JsonUtility.FromJson<VisualizerSettings>(File.ReadAllText(FilePath));
         }
         catch (Exception e) { Debug.LogWarning("Nastavení nejde načíst: " + e.Message); }
-        return new VisualizerSettings();
+        if (s == null) s = new VisualizerSettings();
+        if (s.version < 2 || s.fixtures == null || s.fixtures.Count == 0) { s.fixtures = FixtureEntry.Defaults(); s.version = 2; }
+        return s;
     }
 
     public void Save()
@@ -43,7 +39,7 @@ public class VisualizerSettings
     }
 }
 
-// Jednoduché menu přes IMGUI. Tab/F1 = menu, F11 = celá obrazovka, 1-4 = pohledy kamery.
+// Menu přes IMGUI. Tab/F1 = menu, F11 = celá obrazovka, 1-4 = pohledy kamery.
 public class VisualizerMenu : MonoBehaviour
 {
     SceneBuilder scene;
@@ -52,15 +48,25 @@ public class VisualizerMenu : MonoBehaviour
     VisualizerSettings s;
 
     bool show = true;
-    Rect win = new Rect(16, 16, 360, 10);
-    string sUni, sGig, sHaze;
-    readonly string[] sPar = new string[4];
-    readonly string[] sTube = new string[4];
+    int tab;
+    Rect win = new Rect(16, 16, 440, 10);
+    Vector2 scroll;
     string msg;
     float msgTime;
 
+    // Editace patche – texty polí, dokud se nepoužijí
+    readonly List<string> eName = new List<string>();
+    readonly List<string> eUni = new List<string>();
+    readonly List<string> eAddr = new List<string>();
+    readonly List<bool> e40 = new List<bool>();
+
     struct Cam { public string name; public Vector3 pos, look; }
     Cam[] cams;
+
+    // Styly
+    float styleScale = -1f;
+    GUIStyle sWin, sLabel, sHead, sDim, sWarn, sButton, sTab, sField, sToggle, sBar;
+    Texture2D texWin, texBar, texTabOn;
 
     void Start()
     {
@@ -72,18 +78,19 @@ public class VisualizerMenu : MonoBehaviour
         Application.runInBackground = true;
         Application.targetFrameRate = 60;
 
-        float back = -scene.roomDepth * 0.5f;
-        float rig = back + 1.3f;
+        float back = -scene.roomDepth * 0.5f;   // zadní stěna
+        float front = -back;                     // přední stěna
+        float rig = back + 1.3f;                 // GigBar
         cams = new[]
         {
-            new Cam { name = "Host",   pos = new Vector3(0, 1.7f, -back - 1.5f), look = new Vector3(0, 1.6f, rig) },
-            new Cam { name = "Parket", pos = new Vector3(1.2f, 1.7f, rig + 4f),   look = new Vector3(0, 2.0f, rig) },
-            new Cam { name = "DJ",     pos = new Vector3(0, 1.75f, rig + 1.1f),   look = new Vector3(0, 1.0f, -back) },
-            new Cam { name = "Shora",  pos = new Vector3(0, scene.ceiling - 0.3f, -back - 1f), look = new Vector3(0, 0.3f, rig + 2f) },
+            new Cam { name = "Host",   pos = new Vector3(0, 1.7f, front - 1.5f),         look = new Vector3(0, 1.6f, rig) },
+            new Cam { name = "Parket", pos = new Vector3(1.8f, 1.7f, rig + 6.5f),        look = new Vector3(0, 1.6f, rig) },
+            new Cam { name = "DJ",     pos = new Vector3(0, 1.75f, rig + 1.1f),          look = new Vector3(0, 1.0f, front) },
+            new Cam { name = "Shora",  pos = new Vector3(0, scene.ceiling - 0.15f, rig + 4.5f), look = new Vector3(0, 0f, rig + 1.2f) },
         };
 
         ApplyToPatch();
-        RefreshStrings();
+        LoadEditor();
         SetCamera(s.cameraPreset);
         if (s.fullscreen) Screen.fullScreenMode = FullScreenMode.FullScreenWindow;
     }
@@ -106,55 +113,63 @@ public class VisualizerMenu : MonoBehaviour
 #endif
     }
 
+    // ---------------- Patch ----------------
+
     void ApplyToPatch()
     {
         if (patch == null) return;
-        patch.gigbarUniverse = patch.parUniverse = patch.tubeUniverse = patch.hazeUniverse = s.universe;
-        patch.gigbarAddress = s.gigbarAddress;
-        patch.parAddresses = (int[])s.parAddresses.Clone();
-        patch.tubeAddresses = (int[])s.tubeAddresses.Clone();
-        patch.hazeAddress = s.hazeAddress;
-        patch.tubeMode = s.tube40ch ? DmxPatch.TubeMode.Ch40_8Pixels : DmxPatch.TubeMode.Ch12_SoundSwitch;
+        patch.fixtures = new List<FixtureEntry>();
+        foreach (var f in s.fixtures)
+            patch.fixtures.Add(new FixtureEntry { type = f.type, name = f.name, universe = f.universe, address = f.address, mode40ch = f.mode40ch });
         patch.hazeBuildRate = s.hazeBuildRate;
         patch.hazeDecay = s.hazeDecay;
     }
 
-    void RefreshStrings()
+    void LoadEditor()
     {
-        sUni = (s.universe + 1).ToString(); // v UI jako SoundSwitch: Universe 1 = Art-Net 0
-        sGig = s.gigbarAddress.ToString();
-        sHaze = s.hazeAddress.ToString();
-        for (int i = 0; i < 4; i++)
+        eName.Clear(); eUni.Clear(); eAddr.Clear(); e40.Clear();
+        foreach (var f in s.fixtures)
         {
-            sPar[i] = i < s.parAddresses.Length ? s.parAddresses[i].ToString() : "0";
-            sTube[i] = i < s.tubeAddresses.Length ? s.tubeAddresses[i].ToString() : "0";
+            eName.Add(f.name);
+            eUni.Add(f.universe.ToString());
+            eAddr.Add(f.address.ToString());
+            e40.Add(f.mode40ch);
         }
     }
 
-    bool ReadStrings()
+    // Přenese texty z editoru do nastavení. Vrací chybu, nebo null.
+    string StoreEditor()
     {
-        bool ok = true;
-        ok &= Parse(sUni, 1, 16, v => s.universe = v - 1);
-        ok &= Parse(sGig, 1, 512 - 51, v => s.gigbarAddress = v);
-        ok &= Parse(sHaze, 1, 512, v => s.hazeAddress = v);
-        var pa = new int[4];
-        var ta = new int[4];
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < s.fixtures.Count; i++)
         {
-            int idx = i;
-            ok &= Parse(sPar[i], 1, 503, v => pa[idx] = v);
-            ok &= Parse(sTube[i], 1, 512 - 11, v => ta[idx] = v);
+            var f = s.fixtures[i];
+            int ch = FixtureEntry.Channels(f.type, e40[i]);
+            if (!int.TryParse(eUni[i], out int u) || u < 1 || u > 16) return f.name + ": universe musí být 1–16";
+            if (!int.TryParse(eAddr[i], out int a) || a < 1 || a + ch - 1 > 512) return f.name + ": adresa musí být 1–" + (513 - ch);
+            f.name = string.IsNullOrWhiteSpace(eName[i]) ? FixtureEntry.TypeLabel(f.type) : eName[i].Trim();
+            f.universe = u;
+            f.address = a;
+            f.mode40ch = e40[i];
         }
-        s.parAddresses = pa;
-        s.tubeAddresses = ta;
-        return ok;
+        return null;
     }
 
-    static bool Parse(string txt, int min, int max, Action<int> set)
+    // Překryvy adres v editoru (podle aktuálních textů)
+    string Overlap(int i)
     {
-        if (int.TryParse(txt, out int v) && v >= min && v <= max) { set(v); return true; }
-        return false;
+        if (!int.TryParse(eUni[i], out int u) || !int.TryParse(eAddr[i], out int a)) return null;
+        int end = a + FixtureEntry.Channels(s.fixtures[i].type, e40[i]) - 1;
+        for (int j = 0; j < s.fixtures.Count; j++)
+        {
+            if (j == i) continue;
+            if (!int.TryParse(eUni[j], out int u2) || !int.TryParse(eAddr[j], out int a2) || u2 != u) continue;
+            int end2 = a2 + FixtureEntry.Channels(s.fixtures[j].type, e40[j]) - 1;
+            if (a <= end2 && a2 <= end) return eName[j];
+        }
+        return null;
     }
+
+    // ---------------- Kamera / okno ----------------
 
     void SetCamera(int i)
     {
@@ -173,95 +188,181 @@ public class VisualizerMenu : MonoBehaviour
         bool fs = Screen.fullScreenMode != FullScreenMode.Windowed;
         Screen.fullScreenMode = fs ? FullScreenMode.Windowed : FullScreenMode.FullScreenWindow;
         s.fullscreen = !fs;
+        s.Save();
     }
 
     void Flash(string m) { msg = m; msgTime = Time.unscaledTime; }
 
+    // ---------------- GUI ----------------
+
+    static Texture2D Tex(Color c)
+    {
+        var t = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
+        t.SetPixel(0, 0, c);
+        t.Apply();
+        return t;
+    }
+
+    void BuildStyles(float k)
+    {
+        styleScale = k;
+        int fs = Mathf.RoundToInt(14 * k);
+        if (texWin == null) texWin = Tex(new Color(0.07f, 0.07f, 0.09f, 0.95f));
+        if (texBar == null) texBar = Tex(new Color(0f, 0f, 0f, 0.6f));
+        if (texTabOn == null) texTabOn = Tex(new Color(0.15f, 0.45f, 0.75f, 1f));
+        var text = new Color(0.93f, 0.93f, 0.95f);
+
+        sWin = new GUIStyle(GUI.skin.window) { fontSize = fs + 2, fontStyle = FontStyle.Bold };
+        sWin.normal.background = sWin.onNormal.background = texWin;
+        sWin.normal.textColor = sWin.onNormal.textColor = text;
+        sWin.padding = new RectOffset((int)(12 * k), (int)(12 * k), (int)(30 * k), (int)(12 * k));
+
+        sLabel = new GUIStyle(GUI.skin.label) { fontSize = fs, wordWrap = true };
+        sLabel.normal.textColor = text;
+        sHead = new GUIStyle(sLabel) { fontStyle = FontStyle.Bold };
+        sDim = new GUIStyle(sLabel) { fontSize = Mathf.RoundToInt(12 * k) };
+        sDim.normal.textColor = new Color(0.65f, 0.67f, 0.72f);
+        sWarn = new GUIStyle(sDim);
+        sWarn.normal.textColor = new Color(1f, 0.55f, 0.4f);
+
+        sButton = new GUIStyle(GUI.skin.button) { fontSize = fs, fixedHeight = 28 * k };
+        sTab = new GUIStyle(sButton);
+        sTab.onNormal.background = sTab.onHover.background = sTab.onActive.background = texTabOn;
+        sTab.onNormal.textColor = sTab.onHover.textColor = Color.white;
+        sField = new GUIStyle(GUI.skin.textField) { fontSize = fs, fixedHeight = 24 * k };
+        sToggle = new GUIStyle(GUI.skin.toggle) { fontSize = fs };
+        sToggle.normal.textColor = sToggle.onNormal.textColor = text;
+        sBar = new GUIStyle(sLabel) { padding = new RectOffset(8, 8, 4, 4), wordWrap = false };
+        sBar.normal.background = texBar;
+
+        win.width = 460 * k;
+    }
+
     void OnGUI()
     {
-        float scale = Mathf.Max(1f, Screen.height / 1080f);
-        GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
+        float k = Mathf.Clamp(Screen.height / 900f, 1f, 2.5f);
+        if (sWin == null || !Mathf.Approximately(k, styleScale)) BuildStyles(k);
 
-        // Stavový řádek dole
         bool live = artnet != null && artnet.HasData && (patch == null || !patch.forceDemo);
         string st = live
-            ? "● LIVE  Art-Net od " + artnet.lastSender + "  (" + artnet.packetsReceived + " paketů)"
-            : "○ Čekám na Art-Net – běží demo";
-        GUI.Label(new Rect(10, Screen.height / scale - 26, 900, 22), st + "     Tab = menu");
+            ? "● LIVE  Art-Net od " + artnet.lastSender + "   (" + artnet.packetsReceived + " paketů)"
+            : (patch != null && patch.forceDemo ? "◐ Vynucené demo" : "○ Čekám na Art-Net – běží demo");
+        var content = new GUIContent(st + "      Tab = menu");
+        var size = sBar.CalcSize(content);
+        GUI.Label(new Rect(10, Screen.height - size.y - 10, size.x, size.y), content, sBar);
 
-        if (show) win = GUILayout.Window(1, win, DrawWindow, "DMX Visualiser");
+        if (show) win = GUILayout.Window(1, win, DrawWindow, "DMX Visualiser", sWin);
     }
 
     void DrawWindow(int id)
     {
-        bool live = artnet != null && artnet.HasData;
-        GUILayout.Label(live ? "Art-Net: přijímám od " + artnet.lastSender : "Art-Net: žádná data (port " + (artnet != null ? artnet.port : 6454) + ")");
-        if (patch != null) patch.forceDemo = GUILayout.Toggle(patch.forceDemo, " Vynutit demo (ignorovat Art-Net)");
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Toggle(tab == 0, "Přehled", sTab)) tab = 0;
+        if (GUILayout.Toggle(tab == 1, "Světla (" + s.fixtures.Count + ")", sTab)) { if (tab != 1) LoadEditor(); tab = 1; }
+        GUILayout.EndHorizontal();
+        GUILayout.Space(8 * styleScale);
 
-        GUILayout.Space(6);
-        GUILayout.Label("Pohled kamery (1–4):");
+        if (tab == 0) DrawOverview(); else DrawFixtures();
+
+        if (!string.IsNullOrEmpty(msg) && Time.unscaledTime - msgTime < 4f) GUILayout.Label(msg, sHead);
+        GUI.DragWindow(new Rect(0, 0, 10000, 30 * styleScale));
+    }
+
+    void DrawOverview()
+    {
+        bool live = artnet != null && artnet.HasData;
+        GUILayout.Label("Art-Net", sHead);
+        if (artnet != null)
+        {
+            GUILayout.Label(live ? "Přijímám od " + artnet.lastSender + "  •  " + artnet.packetsReceived + " paketů" : "Žádná data", sLabel);
+            GUILayout.Label("Poslouchám na " + artnet.bindInfo + "  •  ArtPoll odpovědí: " + artnet.pollsAnswered, sDim);
+        }
+        if (patch != null) patch.forceDemo = GUILayout.Toggle(patch.forceDemo, " Vynutit demo (ignorovat Art-Net)", sToggle);
+
+        GUILayout.Space(10 * styleScale);
+        GUILayout.Label("Pohled kamery  (klávesy 1–4)", sHead);
         GUILayout.BeginHorizontal();
         for (int i = 0; i < cams.Length; i++)
-            if (GUILayout.Toggle(s.cameraPreset == i, cams[i].name, "Button")) if (s.cameraPreset != i) SetCamera(i);
+            if (GUILayout.Toggle(s.cameraPreset == i, cams[i].name, sTab) && s.cameraPreset != i) SetCamera(i);
         GUILayout.EndHorizontal();
 
-        GUILayout.Space(6);
+        GUILayout.Space(10 * styleScale);
         if (live && patch != null && !patch.forceDemo)
         {
-            GUILayout.Label("Haze v sále: " + Mathf.RoundToInt(patch.hazeDensity * 100) + " %  (řídí hazer z DMX)");
+            GUILayout.Label("Haze v sále: " + Mathf.RoundToInt(patch.hazeDensity * 100) + " %  (přibývá podle hazeru z DMX)", sHead);
             patch.hazeDensity = GUILayout.HorizontalSlider(patch.hazeDensity, 0f, 1f);
         }
         else
         {
-            GUILayout.Label("Haze: " + scene.haze.ToString("0.00"));
+            GUILayout.Label("Haze: " + scene.haze.ToString("0.00"), sHead);
             scene.haze = GUILayout.HorizontalSlider(scene.haze, 0f, 3f);
         }
 
-        GUILayout.Space(8);
-        GUILayout.Label("DMX patch (adresy jako v SoundSwitchi):");
-        Field("Universe", ref sUni);
-        Field("GigBar Move ILS (52ch)", ref sGig);
-        Field("Hazer (1ch)", ref sHaze);
-        GUILayout.Label("Battery pary (10ch):");
+        GUILayout.Space(12 * styleScale);
         GUILayout.BeginHorizontal();
-        for (int i = 0; i < 4; i++) sPar[i] = GUILayout.TextField(sPar[i], GUILayout.Width(70));
+        if (GUILayout.Button(Screen.fullScreenMode == FullScreenMode.Windowed ? "Celá obrazovka (F11)" : "Okno (F11)", sButton)) ToggleFullscreen();
+        if (GUILayout.Button("Ukončit", sButton)) Quit();
         GUILayout.EndHorizontal();
-        GUILayout.Label("Pixel tuby:");
-        GUILayout.BeginHorizontal();
-        for (int i = 0; i < 4; i++) sTube[i] = GUILayout.TextField(sTube[i], GUILayout.Width(70));
-        GUILayout.EndHorizontal();
-        s.tube40ch = GUILayout.Toggle(s.tube40ch, " Tuby ve 40ch módu (8 pixelů), jinak 12ch");
-
-        GUILayout.Space(8);
-        GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Použít a uložit"))
-        {
-            if (ReadStrings()) { ApplyToPatch(); s.Save(); Flash("Uloženo"); }
-            else Flash("Chybná adresa – zkontroluj čísla");
-        }
-        if (GUILayout.Button(Screen.fullScreenMode == FullScreenMode.Windowed ? "Celá obrazovka" : "Okno")) ToggleFullscreen();
-        if (GUILayout.Button("Ukončit"))
-        {
-            s.Save();
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-#else
-            Application.Quit();
-#endif
-        }
-        GUILayout.EndHorizontal();
-
-        if (!string.IsNullOrEmpty(msg) && Time.unscaledTime - msgTime < 3f) GUILayout.Label(msg);
-        GUILayout.Label("Pravé tl. myši + WASD = kamera, Q/E dolů/nahoru, Shift rychleji, F11 celá obrazovka");
-        GUI.DragWindow();
+        GUILayout.Space(6 * styleScale);
+        GUILayout.Label("Kamera: pravé tlačítko myši + WASD, Q/E dolů/nahoru, Shift rychleji", sDim);
     }
 
-    static void Field(string label, ref string value)
+    void DrawFixtures()
     {
+        GUILayout.Label("Adresy jako v SoundSwitchi. N-té světlo daného typu v seznamu řídí N-té světlo ve scéně.", sDim);
+        GUILayout.Space(4 * styleScale);
+
+        float k = styleScale;
+        scroll = GUILayout.BeginScrollView(scroll, GUILayout.Height(Mathf.Min(Screen.height * 0.6f, 520 * k)));
+        for (int i = 0; i < s.fixtures.Count; i++)
+        {
+            var f = s.fixtures[i];
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.BeginHorizontal();
+            eName[i] = GUILayout.TextField(eName[i], sField, GUILayout.Width(170 * k));
+            GUILayout.Label(FixtureEntry.TypeLabel(f.type), sDim);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("U", sLabel, GUILayout.Width(16 * k));
+            eUni[i] = GUILayout.TextField(eUni[i], sField, GUILayout.Width(40 * k));
+            GUILayout.Label("Adresa", sLabel, GUILayout.Width(58 * k));
+            eAddr[i] = GUILayout.TextField(eAddr[i], sField, GUILayout.Width(60 * k));
+            int ch = FixtureEntry.Channels(f.type, e40[i]);
+            string range = int.TryParse(eAddr[i], out int a) ? a + "–" + (a + ch - 1) : "?";
+            GUILayout.Label(ch + "ch  (" + range + ")", sDim);
+            GUILayout.EndHorizontal();
+
+            if (f.type == FixtureType.PixelTube)
+                e40[i] = GUILayout.Toggle(e40[i], " 40ch mód (8 pixelů), jinak 12ch", sToggle);
+
+            string ov = Overlap(i);
+            if (ov != null) GUILayout.Label("⚠ Překrývá se s: " + ov, sWarn);
+            GUILayout.EndVertical();
+        }
+        GUILayout.EndScrollView();
+
+        GUILayout.Space(8 * k);
         GUILayout.BeginHorizontal();
-        GUILayout.Label(label, GUILayout.Width(190));
-        value = GUILayout.TextField(value, GUILayout.Width(80));
+        if (GUILayout.Button("Použít a uložit", sButton))
+        {
+            string err = StoreEditor();
+            if (err == null) { ApplyToPatch(); s.Save(); Flash("Uloženo"); }
+            else Flash(err);
+        }
+        if (GUILayout.Button("Zahodit změny", sButton)) { LoadEditor(); Flash("Změny zahozeny"); }
+        if (GUILayout.Button("Výchozí patch", sButton)) { s.fixtures = FixtureEntry.Defaults(); LoadEditor(); Flash("Načten výchozí patch – ulož tlačítkem Použít"); }
         GUILayout.EndHorizontal();
+    }
+
+    void Quit()
+    {
+        s.Save();
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 
     void OnApplicationQuit() { if (s != null) s.Save(); }

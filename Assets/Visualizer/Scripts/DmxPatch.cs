@@ -1,34 +1,72 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
+public enum FixtureType { GigBarMoveILS, BatteryPar, PixelTube, Hazer }
+
+// Jedno světlo v patchi. Universe je 1-based jako v SoundSwitchi (1 = Art-Net universe 0).
+[Serializable]
+public class FixtureEntry
+{
+    public FixtureType type;
+    public string name;
+    public int universe = 1;
+    public int address = 1;
+    public bool mode40ch;   // jen pro tuby
+
+    public FixtureEntry() { }
+    public FixtureEntry(FixtureType t, string n, int addr) { type = t; name = n; address = addr; }
+
+    public static int Channels(FixtureType t, bool ch40 = false)
+    {
+        switch (t)
+        {
+            case FixtureType.GigBarMoveILS: return 52;
+            case FixtureType.BatteryPar: return 10;
+            case FixtureType.PixelTube: return ch40 ? 40 : 12;
+            default: return 1;
+        }
+    }
+
+    public static string TypeLabel(FixtureType t)
+    {
+        switch (t)
+        {
+            case FixtureType.GigBarMoveILS: return "GigBar Move ILS (EU)";
+            case FixtureType.BatteryPar: return "Battery Par";
+            case FixtureType.PixelTube: return "Pixel Tube 360";
+            default: return "Hazer";
+        }
+    }
+
+    public static List<FixtureEntry> Defaults() => new List<FixtureEntry>
+    {
+        new FixtureEntry(FixtureType.GigBarMoveILS, "GigBar", 200),
+        new FixtureEntry(FixtureType.BatteryPar, "Uplight 1", 110),
+        new FixtureEntry(FixtureType.BatteryPar, "Uplight 2", 120),
+        new FixtureEntry(FixtureType.BatteryPar, "Uplight 3", 130),
+        new FixtureEntry(FixtureType.BatteryPar, "Uplight 4", 140),
+        new FixtureEntry(FixtureType.PixelTube, "Tuba 1", 300),
+        new FixtureEntry(FixtureType.PixelTube, "Tuba 2", 350),
+        new FixtureEntry(FixtureType.PixelTube, "Tuba 3", 400),
+        new FixtureEntry(FixtureType.PixelTube, "Tuba 4", 450),
+        new FixtureEntry(FixtureType.Hazer, "Hurricane Haze 1DX", 100),
+    };
+}
+
 // Mapování DMX kanálů na světla ve scéně podle profilů ze SoundSwitch projektu 2502.ssproj.
-// Adresy jsou 1-based jako v SoundSwitchi. Universe One = Art-Net universe 0.
+// N-tý záznam daného typu ovládá N-té světlo daného typu ve scéně.
 public class DmxPatch : MonoBehaviour
 {
-    public enum TubeMode { Ch12_SoundSwitch, Ch40_8Pixels }
-
     public ArtNetReceiver artnet;
     public SceneBuilder scene;
     public DemoDriver demo;
     [Tooltip("Ignorovat Art-Net a pouštět demo")]
     public bool forceDemo;
 
-    [Header("GigBar Move ILS (EU) - 52ch")]
-    public int gigbarUniverse = 0;
-    public int gigbarAddress = 200;
+    public List<FixtureEntry> fixtures = FixtureEntry.Defaults();
 
-    [Header("Wireless Battery LED Stage Up Par - Mode 2, 10ch")]
-    public int parUniverse = 0;
-    public int[] parAddresses = { 110, 120, 130, 140 };
-
-    [Header("LED Pixel Tube 360 RGBWA")]
-    public int tubeUniverse = 0;
-    public int[] tubeAddresses = { 300, 350, 400, 450 };
-    [Tooltip("V projektu je teď patch 12ch (Mode 1). 40ch = Mode 2, 8 pixelů.")]
-    public TubeMode tubeMode = TubeMode.Ch12_SoundSwitch;
-
-    [Header("Hurricane Haze 1DX - 1ch")]
-    public int hazeUniverse = 0;
-    public int hazeAddress = 100;
+    [Header("Hazer – simulace hustoty v sále")]
     [Tooltip("Kolik hazu přibude za sekundu při plném výkonu")]
     public float hazeBuildRate = 0.08f;
     [Tooltip("Jak rychle haze mizí (podíl za sekundu)")]
@@ -36,8 +74,8 @@ public class DmxPatch : MonoBehaviour
     [Range(0, 1)] public float hazeDensity = 0.3f; // počáteční stav sálu
     public float hazeToBeam = 2.5f;                // převod hustoty na viditelnost paprsků
 
-    readonly byte[] u0 = new byte[512];
-    readonly byte[] tmp = new byte[512];
+    readonly byte[][] uniBuf = new byte[16][];
+    readonly int[] uniFrame = new int[16];
 
     void Start()
     {
@@ -50,37 +88,55 @@ public class DmxPatch : MonoBehaviour
     {
         if (artnet == null || scene == null || scene.gigbar == null) return;
         bool live = artnet.HasData && !forceDemo;
-        if (demo != null) demo.enabled = !live; // bez Art-Netu běží demo
+        if (demo != null) demo.enabled = !live; // bez Art-Netu (nebo s vynuceným demem) běží demo
         if (!live) return;
 
-        ApplyGigbar(Uni(gigbarUniverse), gigbarAddress - 1);
-        var pu = Uni(parUniverse);
-        for (int i = 0; i < scene.uplights.Length && i < parAddresses.Length; i++)
-            ApplyBatteryPar(pu, parAddresses[i] - 1, scene.uplights[i]);
-        var tu = Uni(tubeUniverse);
-        for (int i = 0; i < scene.tubes.Length && i < tubeAddresses.Length; i++)
-            ApplyTube(tu, tubeAddresses[i] - 1, scene.tubes[i]);
+        int pars = 0, tubes = 0;
+        bool gigbarDone = false, hazerDone = false;
+        float hazeOut = 0f;
+        foreach (var f in fixtures)
+        {
+            if (f == null) continue;
+            var d = Uni(f.universe - 1);
+            if (d == null) continue;
+            int a = f.address - 1;
+            switch (f.type)
+            {
+                case FixtureType.GigBarMoveILS:
+                    if (!gigbarDone) { ApplyGigbar(d, a); gigbarDone = true; }
+                    break;
+                case FixtureType.BatteryPar:
+                    if (pars < scene.uplights.Length) ApplyBatteryPar(d, a, scene.uplights[pars]);
+                    pars++;
+                    break;
+                case FixtureType.PixelTube:
+                    if (tubes < scene.tubes.Length) ApplyTube(d, a, scene.tubes[tubes], f.mode40ch);
+                    tubes++;
+                    break;
+                case FixtureType.Hazer:
+                    if (!hazerDone) { hazeOut = F(d, a); hazerDone = true; }
+                    break;
+            }
+        }
 
         // Hazer: kouř se nevykresluje jako oblak, jen „hromadí“ v sále a zviditelňuje paprsky.
-        float output = F(Uni(hazeUniverse), hazeAddress - 1);
-        hazeDensity += output * hazeBuildRate * Time.deltaTime;
+        hazeDensity += hazeOut * hazeBuildRate * Time.deltaTime;
         hazeDensity -= hazeDensity * hazeDecay * Time.deltaTime;
         hazeDensity = Mathf.Clamp01(hazeDensity);
         scene.haze = Mathf.Clamp(0.05f + hazeDensity * hazeToBeam, 0f, 3f);
     }
 
-    // Jednoduchá cache: universe 0 se kopíruje jednou za snímek, ostatní na vyžádání.
-    int u0Frame = -1;
+    // Každé universe se z přijímače kopíruje nejvýš jednou za snímek.
     byte[] Uni(int u)
     {
-        if (u == 0)
+        if (u < 0 || u >= uniBuf.Length) return null;
+        if (uniBuf[u] == null) { uniBuf[u] = new byte[512]; uniFrame[u] = -1; }
+        if (uniFrame[u] != Time.frameCount)
         {
-            if (u0Frame != Time.frameCount) { artnet.GetUniverse(0, u0); u0Frame = Time.frameCount; }
-            return u0;
+            artnet.GetUniverse(u, uniBuf[u]);
+            uniFrame[u] = Time.frameCount;
         }
-        var b = new byte[512];
-        artnet.GetUniverse(u, b);
-        return b;
+        return uniBuf[u];
     }
 
     static float F(byte[] d, int ch) => ch >= 0 && ch < 512 ? d[ch] / 255f : 0f;
@@ -174,7 +230,7 @@ public class DmxPatch : MonoBehaviour
         if (v <= 3) dim = 0f;
         else if (v >= 8 && v <= 76) h.strobeHz = Mathf.Lerp(1f, 20f, (v - 8) / 68f);
         else if (v >= 77 && v <= 145) dim *= 0.5f + 0.5f * Mathf.Sin(Time.time * Mathf.Lerp(2f, 15f, (v - 77) / 68f));
-        else if (v >= 146 && v <= 215) h.strobeHz = Random.Range(2f, 15f);
+        else if (v >= 146 && v <= 215) h.strobeHz = UnityEngine.Random.Range(2f, 15f);
     }
 
     void ApplyMover(byte[] d, int b, MovingHead h)
@@ -213,10 +269,10 @@ public class DmxPatch : MonoBehaviour
     // Mode 1 (12ch): 0 Intensity, 1 Strobe, 2 Color macro, 3 Background, 4 Base tint,
     //                5 Effects, 6 Effect speed, 7 R, 8 G, 9 B, 10 W, 11 A
     // Mode 2 (40ch): 8 pixelů × R,G,B,W,A
-    void ApplyTube(byte[] d, int b, PixelTube t)
+    void ApplyTube(byte[] d, int b, PixelTube t, bool mode40ch)
     {
         if (t == null || t.pixels == null) return;
-        if (tubeMode == TubeMode.Ch12_SoundSwitch)
+        if (!mode40ch)
         {
             Color c = VisUtil.RGBWA(F(d, b + 7), F(d, b + 8), F(d, b + 9), F(d, b + 10), F(d, b + 11));
             float gate = VisUtil.StrobeGate(StrobeHz(I(d, b + 1)));
