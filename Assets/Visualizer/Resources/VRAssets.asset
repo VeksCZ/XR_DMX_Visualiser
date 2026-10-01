@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VRAssets
   leftController: {fileID: 919132149155446097, guid: 2b1aaafc31655024394d83dc00911c1c, type: 3}
   rightController: {fileID: 919132149155446097, guid: deed68a7fd2e9234899298cf80fae7ad, type: 3}
-  modelOffset: {x: 0, y: 0, z: 0}
-  modelRotation: {x: 0, y: 0, z: 0}
+  modelOffset: {x: 0, y: -0.03, z: -0.04}
+  modelRotation: {x: -60, y: 0, z: 0}
