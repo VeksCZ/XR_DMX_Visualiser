@@ -11,8 +11,10 @@ public class Derby : MonoBehaviour
     [Header("Parametry")]
     public float coverage = 131f;
     public int beamsPerColor = 4;
-    public float beamAngle = 3.5f;
-    public float beamLength = 9f;
+    public float beamAngle = 4f;
+    public float beamLength = 6f;
+    [Tooltip("Derby má jen 6,5 W LED, paprsky jsou v reálu slabé")]
+    public float brightness = 0.2f;
 
     Transform rotor;
     Renderer[] beams;
@@ -55,9 +57,9 @@ public class Derby : MonoBehaviour
         for (int i = 0; i < beams.Length; i++)
         {
             int c = beamColor[i];
-            VisUtil.SetColor(beams[i], cols[c], lv[c] * gate * 1.2f);
+            VisUtil.SetColor(beams[i], cols[c], lv[c] * gate * brightness);
         }
         for (int c = 0; c < 4; c++) sum += cols[c] * lv[c];
-        VisUtil.SetColor(lens, sum, gate * 3f);
+        VisUtil.SetColor(lens, sum, gate * 1.5f);
     }
 }

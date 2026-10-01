@@ -43,7 +43,7 @@ public class DemoDriver : MonoBehaviour
         g.derbyL.white = g.derbyR.white = 0;
 
         // Laser
-        g.laser.intensity = phrase == 2 ? 1 : 0;
+        g.laser.intensity = phrase == 2 && bar % 4 == 3 ? 1 : 0; // laser jen občas
         g.laser.color = bar % 2 == 0 ? Color.green : new Color(0.2f, 0.2f, 1f);
 
         // Strobo jednou za frázi

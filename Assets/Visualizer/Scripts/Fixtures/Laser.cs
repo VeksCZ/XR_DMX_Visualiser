@@ -13,6 +13,8 @@ public class Laser : MonoBehaviour
     public float coverage = 93f;
     public int columns = 9, rows = 5;
     public float beamLength = 15f;
+    [Tooltip("Laser je jen desítky mW, paprsky jsou v hazu slabé")]
+    public float brightness = 0.5f;
 
     Transform rotor;
     Renderer[] beams;
@@ -36,7 +38,7 @@ public class Laser : MonoBehaviour
                 var pivot = new GameObject("L" + k).transform;
                 pivot.SetParent(rotor, false);
                 pivot.localRotation = Quaternion.Euler(pitch, yaw, 0);
-                beams[k++] = VisUtil.Beam(pivot, 0.25f, beamLength, 0.0015f);
+                beams[k++] = VisUtil.Beam(pivot, 0.12f, beamLength, 0.001f);
             }
     }
 
@@ -46,7 +48,7 @@ public class Laser : MonoBehaviour
         rotor.Rotate(0, 0, patternSpeed * Time.deltaTime, Space.Self);
         float I = intensity * VisUtil.StrobeGate(strobeHz);
         for (int i = 0; i < beams.Length; i++)
-            VisUtil.SetColor(beams[i], color, I * 6f);
-        VisUtil.SetColor(aperture, color, I * 10f);
+            VisUtil.SetColor(beams[i], color, I * brightness);
+        VisUtil.SetColor(aperture, color, I * 4f);
     }
 }

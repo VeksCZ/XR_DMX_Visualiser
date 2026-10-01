@@ -12,6 +12,8 @@ public class GigBar : MonoBehaviour
     public float parX = 0.18f;
     [Tooltip("Sklon parů a derby dolů (°)")]
     public float frontTilt = 12f;
+    [Tooltip("Laser natočený do stropu (záporné = nahoru), kvůli hostům a fotografům")]
+    public float laserTilt = -60f;
 
     [HideInInspector] public MovingHead headL, headR;
     [HideInInspector] public ParLight parL, parR;
@@ -40,7 +42,7 @@ public class GigBar : MonoBehaviour
         parR = Make<ParLight>("Par R", new Vector3(parX, fy, fz + 0.04f), new Vector3(frontTilt, 0, 0));
         parL.Build(); parR.Build();
 
-        laser = Make<Laser>("Laser", new Vector3(0, fy, fz + 0.04f), new Vector3(frontTilt, 0, 0));
+        laser = Make<Laser>("Laser", new Vector3(0, fy, fz + 0.04f), new Vector3(laserTilt, 0, 0));
         laser.Build();
 
         strobe = Make<Strobe>("Strobe", new Vector3(0, fy, fz), Vector3.zero);

@@ -37,6 +37,7 @@ public class SceneBuilder : MonoBehaviour
     {
         Shader.SetGlobalFloat("_Haze", haze);
         Shader.SetGlobalFloat("_FloorY", 0f);
+        Shader.SetGlobalFloat("_CeilingY", ceiling);
     }
 
     void BuildRoom()

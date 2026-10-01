@@ -31,6 +31,7 @@ Shader "Visualizer/Beam"
             float _LengthFalloff;
             float _Haze;
             float _FloorY;
+            float _CeilingY;
 
             struct appdata
             {
@@ -69,9 +70,10 @@ Shader "Visualizer/Beam"
                 float edge = pow(abs(dot(normalize(i.wn), V)), _EdgeSoftness);
                 // Paprsek slábne se vzdáleností od světla
                 float along = pow(saturate(1.0 - i.t), _LengthFalloff);
-                // Pod podlahou nic
+                // Pod podlahou a nad stropem nic
                 float floorFade = saturate((i.wpos.y - _FloorY) / 0.05);
-                float a = edge * along * floorFade * _Intensity * _Haze;
+                float ceilFade = saturate((_CeilingY - i.wpos.y) / 0.05);
+                float a = edge * along * floorFade * ceilFade * _Intensity * _Haze;
                 return float4(_Color.rgb * a, 1);
             }
             ENDCG
