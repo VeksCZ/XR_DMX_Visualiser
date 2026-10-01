@@ -39,6 +39,9 @@ public class DemoDriver : MonoBehaviour
         // Stav, který mohla nechat živá data ze SS (strobo, rychlost motorů)
         g.headL.strobeHz = g.headR.strobeHz = g.parL.strobeHz = g.parR.strobeHz = 0f;
         g.derbyL.strobeHz = g.derbyR.strobeHz = g.laser.strobeHz = 0f;
+        g.derbyL.rotationSpeed = 40f; g.derbyR.rotationSpeed = -40f; g.laser.patternSpeed = 25f;
+        for (int i = 0; i < sb.derbyStrobes.Length; i++)
+            if (sb.derbyStrobes[i] != null && sb.derbyStrobes[i].derby != null) sb.derbyStrobes[i].derby.rotationSpeed = i == 0 ? 40f : -40f;
         g.headL.maxPanSpeed = g.headR.maxPanSpeed = 300f;
         g.headL.maxTiltSpeed = g.headR.maxTiltSpeed = 200f;
 

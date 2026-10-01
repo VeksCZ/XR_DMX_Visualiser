@@ -146,8 +146,13 @@ public class DmxPatch : MonoBehaviour
     {
         if (artnet == null || scene == null || scene.gigbar == null) return;
         bool live = artnet.HasData && !forceDemo;
-        if (demo != null) demo.enabled = !live; // bez Art-Netu (nebo s vynuceným demem) běží demo
-        if (!live) return;
+        // demo jen na vyžádání; bez Art-Netu a bez dema je na světlech tma a nic se nehýbe
+        if (demo != null) demo.enabled = forceDemo;
+        if (!live)
+        {
+            if (!forceDemo) Blackout();
+            return;
+        }
 
         int pars = 0, tubes = 0, pockets = 0, bpars = 0, derbys = 0, helixes = 0;
         bool gigbarDone = false, hazerDone = false;
@@ -616,6 +621,25 @@ public class DmxPatch : MonoBehaviour
             px[i] = c;
         }
     }
+
+    // Tma: všechna světla zhasnutá, motory stojí (pan/tilt zůstává, kde byl)
+    void Blackout()
+    {
+        var g = scene.gigbar;
+        foreach (var h in new[] { g.headL, g.headR }) if (h != null) { h.dimmer = 0f; h.strobeHz = 0f; }
+        foreach (var p in new[] { g.parL, g.parR }) if (p != null) { p.dimmer = 0f; p.strobeHz = 0f; }
+        foreach (var dr in new[] { g.derbyL, g.derbyR }) if (dr != null) StopDerby(dr);
+        if (g.laser != null) { g.laser.intensity = 0f; g.laser.patternSpeed = 0f; }
+        if (g.strobe != null) g.strobe.dimmer = 0f;
+        foreach (var h in scene.pockets) if (h != null) { h.dimmer = 0f; h.strobeHz = 0f; }
+        foreach (var p in scene.uplights) if (p != null) p.dimmer = 0f;
+        foreach (var p in scene.blackPars) if (p != null) p.dimmer = 0f;
+        foreach (var t in scene.tubes) if (t != null) t.master = 0f;
+        foreach (var ds in scene.derbyStrobes) if (ds != null) { ds.strobeDimmer = 0f; if (ds.derby != null) StopDerby(ds.derby); }
+        foreach (var hx in scene.helixes) if (hx != null) hx.dimmer = 0f;
+    }
+
+    static void StopDerby(Derby d) { d.red = d.green = d.blue = d.white = 0f; d.rotationSpeed = 0f; d.strobeHz = 0f; }
 
     // ================= Kolegova sestava =================
 

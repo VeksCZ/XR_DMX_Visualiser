@@ -23,6 +23,7 @@ public class DerbyStrobe : MonoBehaviour
         derby = d.gameObject.AddComponent<Derby>();
         derby.beamsPerColor = 8;
         derby.coverage = 140f;
+        derby.lensCols = 7; derby.lensRows = 4;   // čelo derby: 7 × 4 čoček
         derby.Build();
         // strobo panel vedle čočky derby
         panel = VisUtil.Emitter(PrimitiveType.Cube, transform, new Vector3(-0.055f, 0, 0.001f), new Vector3(0.04f, 0.07f, 0.004f));

@@ -16,8 +16,8 @@ public class Helix : MonoBehaviour
     public float maxTiltSpeed = 360f;
     public float beamAngle = 6f;
     public float beamLength = 8f;
-    public float brightness = 0.6f;
-    public float lightIntensity = 12f;
+    public float brightness = 0.25f;
+    public float lightIntensity = 5f;
 
     readonly Transform[] bars = new Transform[2];
     readonly Renderer[,] beams = new Renderer[2, 4];
@@ -68,7 +68,7 @@ public class Helix : MonoBehaviour
             for (int i = 0; i < 4; i++)
             {
                 VisUtil.SetColor(beams[b, i], n, I * brightness);
-                VisUtil.SetColor(lenses[b, i], n, I * 5f);
+                VisUtil.SetColor(lenses[b, i], n, I * 3f);
             }
             spots[b].color = n;
             spots[b].intensity = I * lightIntensity;
