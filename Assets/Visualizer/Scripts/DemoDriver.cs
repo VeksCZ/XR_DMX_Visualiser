@@ -36,6 +36,12 @@ public class DemoDriver : MonoBehaviour
         g.parL.dimmer = g.parR.dimmer = 0.4f + 0.6f * pulse;
         g.parL.color = g.parR.color = hue;
 
+        // Stav, který mohla nechat živá data ze SS (strobo, rychlost motorů)
+        g.headL.strobeHz = g.headR.strobeHz = g.parL.strobeHz = g.parR.strobeHz = 0f;
+        g.derbyL.strobeHz = g.derbyR.strobeHz = g.laser.strobeHz = 0f;
+        g.headL.maxPanSpeed = g.headR.maxPanSpeed = 300f;
+        g.headL.maxTiltSpeed = g.headR.maxTiltSpeed = 200f;
+
         // Pocket Pro na stolku – kříží se přes parket, opačná fáze než GigBar
         if (sb.pockets != null && sb.pockets.Length >= 2 && sb.pockets[0] != null)
         {
@@ -48,6 +54,8 @@ public class DemoDriver : MonoBehaviour
             sb.pockets[0].color = sb.pockets[1].color = phrase == 2 ? hue : Color.white;
             sb.pockets[0].gobo = sb.pockets[1].gobo = (bar + 3) % 8;
             sb.pockets[0].strobeHz = sb.pockets[1].strobeHz = 0f;
+            sb.pockets[0].maxPanSpeed = sb.pockets[1].maxPanSpeed = 300f;
+            sb.pockets[0].maxTiltSpeed = sb.pockets[1].maxTiltSpeed = 200f;
         }
 
         // Derby
@@ -70,6 +78,7 @@ public class DemoDriver : MonoBehaviour
         foreach (var t in sb.tubes)
         {
             if (t == null || t.pixels == null) continue;
+            t.master = 1f; // po živých datech mohl zůstat master dimmer na 0
             for (int i = 0; i < t.pixels.Length; i++)
             {
                 float k = Mathf.Repeat(beat * 2f - i / (float)t.pixels.Length * 2f, 1f);
@@ -82,6 +91,7 @@ public class DemoDriver : MonoBehaviour
         {
             if (p == null) continue;
             p.dimmer = 0.8f;
+            p.strobeHz = 0f;
             p.color = Color.Lerp(VisUtil.RGBWA(0, 0, 0, 0.3f, 0.5f), hue, 0.6f);
         }
     }
