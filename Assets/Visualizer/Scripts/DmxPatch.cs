@@ -39,6 +39,7 @@ public class FixtureEntry
             case FixtureType.BlackPar: return new[] { "9ch" };
             case FixtureType.DerbyStrobe: return new[] { "6ch" };
             case FixtureType.DoubleHelix: return new[] { "18ch" };
+            case FixtureType.Hazer: return new[] { "1ch (Hurricane Haze 1DX)", "2ch (Hurricane Haze 4D: fan, haze)" };
             default: return new[] { "1ch" };
         }
     }
@@ -54,6 +55,7 @@ public class FixtureEntry
             case FixtureType.BlackPar: return 9;
             case FixtureType.DerbyStrobe: return 6;
             case FixtureType.DoubleHelix: return 18;
+            case FixtureType.Hazer: return ch40 ? 2 : 1;
             default: return 1;
         }
     }
@@ -73,15 +75,17 @@ public class FixtureEntry
         }
     }
 
-    // Kolegova sestava: rampa nad stolem – derby nahoře na krajích, pary visí blíž ke středu,
-    // helix uprostřed. Adresy jsou zatím jen za sebou (doplnit podle jeho SoundSwitch projektu).
+    // Kolegova sestava podle jeho SoundSwitch patche: rampa nad stolem – derby nahoře na krajích,
+    // pary visí blíž ke středu, helix uprostřed (v SS ho nepoužívá → bez adresy, jen fyzicky na rampě).
     public static List<FixtureEntry> ColleagueDefaults() => new List<FixtureEntry>
     {
-        new FixtureEntry(FixtureType.DerbyStrobe, "Derby L", 1),
-        new FixtureEntry(FixtureType.DerbyStrobe, "Derby R", 7),
-        new FixtureEntry(FixtureType.BlackPar, "Par L", 13),
-        new FixtureEntry(FixtureType.BlackPar, "Par R", 22),
-        new FixtureEntry(FixtureType.DoubleHelix, "Helix", 31),
+        // pořadí v seznamu = pozice na rampě (první = vlevo z pohledu DJ), adresy jsou z jeho patche
+        new FixtureEntry(FixtureType.DerbyStrobe, "Derby Strobe L", 1),
+        new FixtureEntry(FixtureType.DerbyStrobe, "Derby Strobe R", 28),
+        new FixtureEntry(FixtureType.BlackPar, "Black Par L", 18),
+        new FixtureEntry(FixtureType.BlackPar, "Black Par R", 8),
+        new FixtureEntry(FixtureType.Hazer, "Hurricane Haze 4D", 35) { mode40ch = true },
+        new FixtureEntry(FixtureType.DoubleHelix, "Helix (nepoužívá)", 495),
     };
 
     public static List<FixtureEntry> Defaults() => new List<FixtureEntry>
@@ -163,7 +167,8 @@ public class DmxPatch : MonoBehaviour
                     tubes++;
                     break;
                 case FixtureType.Hazer:
-                    if (!hazerDone) { if (on) hazeOut = F(d, a); hazerDone = true; }
+                    // 1DX: 1 kanál = výkon; 4D (2ch): 1 ventilátor, 2 výkon
+                    if (!hazerDone) { if (on) hazeOut = F(d, f.mode40ch ? a + 1 : a); hazerDone = true; }
                     break;
                 case FixtureType.PocketPro:
                     if (on && scene.pockets != null && pockets < scene.pockets.Length) ApplyPocketPro(d, a, scene.pockets[pockets], f);

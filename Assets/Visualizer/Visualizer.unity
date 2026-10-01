@@ -329,6 +329,16 @@ MonoBehaviour:
   pockets:
   - {fileID: 0}
   - {fileID: 0}
+  blackPars:
+  - {fileID: 0}
+  - {fileID: 0}
+  derbyStrobes:
+  - {fileID: 0}
+  - {fileID: 0}
+  helixes:
+  - {fileID: 0}
+  - {fileID: 0}
+  ceilingOverride: -1
 --- !u!4 &176753530
 Transform:
   m_ObjectHideFlags: 0
