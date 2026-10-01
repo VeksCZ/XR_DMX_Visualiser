@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 #endif
 
-// Nastavení ukládané do persistentDataPath/settings.json (přežije restart i aktualizaci).
+// Nastavení settings.json – na Windows ve složce s .exe (portable), jinde v persistentDataPath.
 [Serializable]
 public class VisualizerSettings
 {
@@ -25,7 +25,33 @@ public class VisualizerSettings
     public bool panelOpen = true;
     public bool panelMinimized = false;
 
-    public static string FilePath => Path.Combine(Application.persistentDataPath, "settings.json");
+    // Windows: portable – settings.json leží ve složce s .exe (přenáší se se složkou, aktualizace ho nepřepíše).
+    // Když do složky nejde zapisovat (např. Program Files), zůstává v persistentDataPath.
+    static string filePath;
+    public static string FilePath
+    {
+        get
+        {
+            if (filePath != null) return filePath;
+            string legacy = Path.Combine(Application.persistentDataPath, "settings.json");
+            filePath = legacy;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            try
+            {
+                string appDir = Path.GetDirectoryName(Application.dataPath);
+                string portable = Path.Combine(appDir, "settings.json");
+                if (!File.Exists(portable))
+                {
+                    if (File.Exists(legacy)) File.Copy(legacy, portable);       // převzít dosavadní nastavení
+                    else { File.WriteAllText(portable + ".tmp", ""); File.Delete(portable + ".tmp"); } // test zápisu
+                }
+                filePath = portable;
+            }
+            catch (Exception e) { Debug.LogWarning("Portable settings unavailable: " + e.Message); }
+#endif
+            return filePath;
+        }
+    }
 
     public static VisualizerSettings Load()
     {

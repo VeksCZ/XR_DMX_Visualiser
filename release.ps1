@@ -19,7 +19,7 @@ if (-not (Test-Path $exe)) { throw "Chybí build ($exe). Nejdřív Tools > Visua
 $stage = Join-Path $build 'release\DMXVisualiser'
 Remove-Item (Join-Path $build 'release') -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory $stage -Force | Out-Null
-Get-ChildItem (Join-Path $build 'Windows') | Where-Object { $_.Name -notlike '*DoNotShip*' } | Copy-Item -Destination $stage -Recurse -Force
+Get-ChildItem (Join-Path $build 'Windows') | Where-Object { $_.Name -notlike '*DoNotShip*' -and $_.Name -ne 'settings.json' } | Copy-Item -Destination $stage -Recurse -Force
 
 $zip = Join-Path $build "DMXVisualiser-$tag-win64.zip"
 Remove-Item $zip -ErrorAction SilentlyContinue
