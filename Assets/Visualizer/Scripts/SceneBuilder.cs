@@ -175,11 +175,11 @@ public class SceneBuilder : MonoBehaviour
         for (int i = 0; i < 2; i++)
         {
             float s = i == 0 ? -1f : 1f;
-            // derby nahoře na krajích, míří nahoru a lehce dopředu
+            // derby nahoře na krajích, míří dopředu na parket (lehce dolů)
             var dgo = new GameObject(i == 0 ? "DerbyStrobe L" : "DerbyStrobe R");
             dgo.transform.SetParent(truss, false);
-            dgo.transform.localPosition = new Vector3(s * 0.95f, h + 0.06f, tz);
-            dgo.transform.localEulerAngles = new Vector3(-75f, 0, 0);
+            dgo.transform.localPosition = new Vector3(s * 0.95f, h + 0.07f, tz);
+            dgo.transform.localEulerAngles = new Vector3(15f, 0, 0);
             var ds = dgo.AddComponent<DerbyStrobe>();
             ds.Build();
             if (i == 1) ds.derby.rotationSpeed = -ds.derby.rotationSpeed;
@@ -240,8 +240,8 @@ public class SceneBuilder : MonoBehaviour
             if (c.GetComponent<ParLight>() == null && c.GetComponent<DerbyStrobe>() == null && c.GetComponent<Helix>() == null)
                 c.gameObject.SetActive(any);
         }
-        if (helixes[0] != null) helixes[0].transform.localPosition = new Vector3(hc > 1 ? -0.2f : 0f, helixes[0].transform.localPosition.y, helixes[0].transform.localPosition.z);
-        if (helixes[1] != null) helixes[1].transform.localPosition = new Vector3(0.2f, helixes[1].transform.localPosition.y, helixes[1].transform.localPosition.z);
+        if (helixes[0] != null) helixes[0].transform.localPosition = new Vector3(hc > 1 ? -0.25f : 0f, helixes[0].transform.localPosition.y, helixes[0].transform.localPosition.z);
+        if (helixes[1] != null) helixes[1].transform.localPosition = new Vector3(0.25f, helixes[1].transform.localPosition.y, helixes[1].transform.localPosition.z);
     }
 
     Transform Tripod(Transform parent, Vector3 pos, float h)

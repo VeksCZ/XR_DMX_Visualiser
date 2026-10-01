@@ -60,7 +60,7 @@ public class Helix : MonoBehaviour
         {
             float target = ((b == 0 ? tilt1 : tilt2) - 0.5f) * tiltRange;
             cur[b] = Mathf.MoveTowards(cur[b], target, maxTiltSpeed * Time.deltaTime);
-            bars[b].localRotation = Quaternion.Euler(cur[b] - 90f, 0, 0); // tilt 0 = svítí nahoru
+            bars[b].localRotation = Quaternion.Euler(cur[b], 0, 0); // střed rozsahu = svítí dopředu na parket
             Color c = b == 0 ? color1 : color2;
             float m = Mathf.Max(c.r, Mathf.Max(c.g, c.b));
             Color n = m > 0.001f ? c / m : Color.black;

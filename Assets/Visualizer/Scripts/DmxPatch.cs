@@ -89,7 +89,9 @@ public class FixtureEntry
         // kalibrace převzatá z tvé sestavy – kolega si ji doladí tlačítkem „Aktuální pozice ze SS = střed parketu“
         new FixtureEntry(FixtureType.PocketPro, "Pocket Pro L", 46) { panOffset = 10f, tiltOffset = 43f },
         new FixtureEntry(FixtureType.PocketPro, "Pocket Pro R", 60) { panOffset = -44f, tiltOffset = 45f },
-        new FixtureEntry(FixtureType.DoubleHelix, "Helix (nepoužívá)", 495),
+        // 2× Double Helix na rampě uprostřed; v SS je nepoužívá, adresy jsou jen volné na konci universa
+        new FixtureEntry(FixtureType.DoubleHelix, "Helix 1 (nepoužívá)", 477),
+        new FixtureEntry(FixtureType.DoubleHelix, "Helix 2 (nepoužívá)", 495),
     };
 
     public static List<FixtureEntry> Defaults() => new List<FixtureEntry>
