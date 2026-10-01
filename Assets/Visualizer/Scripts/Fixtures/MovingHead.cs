@@ -55,6 +55,15 @@ public class MovingHead : MonoBehaviour
         spot.transform.localPosition = new Vector3(0, 0, 0.1f);
     }
 
+    // Úhly modelu (yaw jha, tilt od osy podstavy), při kterých paprsek míří do bodu target.
+    public void AimAngles(Vector3 target, out float yaw, out float tilt)
+    {
+        Vector3 pivot = transform.TransformPoint(new Vector3(0, 0.2f, 0)); // osa tiltu (jho 0.06 + hlava 0.14)
+        Vector3 l = transform.InverseTransformDirection(target - pivot).normalized;
+        tilt = Mathf.Acos(Mathf.Clamp(l.y, -1f, 1f)) * Mathf.Rad2Deg;
+        yaw = Mathf.Atan2(l.x, l.z) * Mathf.Rad2Deg;
+    }
+
     void Update()
     {
         if (head == null) return;

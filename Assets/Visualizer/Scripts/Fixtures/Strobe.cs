@@ -15,10 +15,10 @@ public class Strobe : MonoBehaviour
 
     public void Build()
     {
-        // 4 LED po dvou vlevo a vpravo od laseru
-        float[] xs = { -0.105f, -0.07f, 0.07f, 0.105f };
+        // 4 malé LED těsně vedle sebe uprostřed čela tyče
+        float[] xs = { -0.045f, -0.015f, 0.015f, 0.045f };
         for (int i = 0; i < 4; i++)
-            leds[i] = VisUtil.Emitter(PrimitiveType.Cube, transform, new Vector3(xs[i], 0, 0), new Vector3(0.025f, 0.025f, 0.004f));
+            leds[i] = VisUtil.Emitter(PrimitiveType.Cube, transform, new Vector3(xs[i], 0, 0), new Vector3(0.022f, 0.022f, 0.004f));
         glow = VisUtil.Point(transform, new Vector3(0, 0, 0.3f), 10f);
     }
 

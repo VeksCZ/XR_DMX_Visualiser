@@ -3,7 +3,8 @@ using UnityEngine;
 // Chauvet GigBAR Move + ILS - zjednodušený model.
 // Rozměry 1100 × 144 × 449 mm (d × hl × v).
 // Pořadí efektů (zleva doprava při pohledu zepředu): moving head, derby, par,
-// laser se strobem, par, derby, moving head. Moving heady visí pod tyčí, derby sedí nahoře.
+// laser se strobem, par, derby, moving head. Moving heady a pary visí pod tyčí, derby a laser
+// sedí nahoře, strobo (4 LED) je přímo na čele tyče.
 // Pozice X uprav podle svého baru.
 public class GigBar : MonoBehaviour
 {
@@ -11,10 +12,12 @@ public class GigBar : MonoBehaviour
     public float headX = 0.47f;
     public float derbyX = 0.32f;
     public float parX = 0.18f;
-    [Tooltip("Sklon parů a derby dolů (°)")]
+    [Tooltip("Sklon derby dolů (°)")]
     public float frontTilt = 12f;
     [Tooltip("Laser natočený do stropu (záporné = nahoru), kvůli hostům a fotografům")]
     public float laserTilt = -60f;
+    [Tooltip("Sklon visících parů (90 = kolmo dolů)")]
+    public float parTilt = 40f;
 
     [HideInInspector] public MovingHead headL, headR;
     [HideInInspector] public ParLight parL, parR;
@@ -41,13 +44,22 @@ public class GigBar : MonoBehaviour
         derbyL.Build(); derbyR.Build();
         derbyR.rotationSpeed = -derbyR.rotationSpeed;
 
-        parL = Make<ParLight>("Par L", new Vector3(-parX, fy, fz + 0.04f), new Vector3(frontTilt, 0, 0));
-        parR = Make<ParLight>("Par R", new Vector3(parX, fy, fz + 0.04f), new Vector3(frontTilt, 0, 0));
+        // Pary visí pod tyčí v třmenu (blíž k tyči než hlavy), míří dolů na parket
+        foreach (float sx in new[] { -parX, parX })
+        {
+            VisUtil.Prim(PrimitiveType.Cube, transform, new Vector3(sx, -0.006f, 0), new Vector3(0.14f, 0.012f, 0.05f), VisUtil.BodyMat);
+            VisUtil.Prim(PrimitiveType.Cube, transform, new Vector3(sx - 0.065f, -0.05f, 0), new Vector3(0.01f, 0.09f, 0.04f), VisUtil.BodyMat);
+            VisUtil.Prim(PrimitiveType.Cube, transform, new Vector3(sx + 0.065f, -0.05f, 0), new Vector3(0.01f, 0.09f, 0.04f), VisUtil.BodyMat);
+        }
+        parL = Make<ParLight>("Par L", new Vector3(-parX, -0.08f, 0.02f), new Vector3(parTilt, 0, 0));
+        parR = Make<ParLight>("Par R", new Vector3(parX, -0.08f, 0.02f), new Vector3(parTilt, 0, 0));
         parL.Build(); parR.Build();
 
-        laser = Make<Laser>("Laser", new Vector3(0, fy, fz + 0.04f), new Vector3(laserTilt, 0, 0));
+        // Laser nahoře na tyči jako derby, ale nízko u tyče
+        laser = Make<Laser>("Laser", new Vector3(0, barH + 0.035f, 0.02f), new Vector3(laserTilt, 0, 0));
         laser.Build();
 
+        // Strobo: 4 malé LED vedle sebe přímo na čelní straně tyče
         strobe = Make<Strobe>("Strobe", new Vector3(0, fy, fz), Vector3.zero);
         strobe.Build();
     }

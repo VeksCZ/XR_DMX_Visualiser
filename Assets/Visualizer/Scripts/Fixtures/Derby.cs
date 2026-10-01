@@ -36,12 +36,13 @@ public class Derby : MonoBehaviour
         beamColor = new int[n];
         for (int i = 0; i < n; i++)
         {
-            float t = n == 1 ? 0.5f : i / (float)(n - 1);
-            float yaw = Mathf.Lerp(-coverage * 0.5f, coverage * 0.5f, t);
-            float pitch = (i % 3 - 1) * 14f; // tři řady nad sebou
+            // Paprsky rozprostřené dokola (360°) kolem osy čočky – zlatý úhel dá rovnoměrné pokrytí,
+            // odklon od osy roste až do poloviny „coverage“.
+            float around = i * 137.508f;
+            float off = Mathf.Sqrt((i + 0.5f) / n) * coverage * 0.5f;
             var pivot = new GameObject("B" + i).transform;
             pivot.SetParent(rotor, false);
-            pivot.localRotation = Quaternion.Euler(pitch, yaw, 0);
+            pivot.localRotation = Quaternion.Euler(0, 0, around) * Quaternion.Euler(off, 0, 0);
             beams[i] = VisUtil.Beam(pivot, beamAngle, beamLength, 0.006f);
             beamColor[i] = i % 4;
         }

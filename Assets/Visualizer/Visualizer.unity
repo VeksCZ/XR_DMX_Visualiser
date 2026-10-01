@@ -164,6 +164,7 @@ MonoBehaviour:
     mode40ch: 0
     hidden: 0
     panOffset: 0
+    tiltOffset: 0
     invertPan: 0
     invertTilt: 0
   - type: 1
@@ -173,6 +174,7 @@ MonoBehaviour:
     mode40ch: 0
     hidden: 0
     panOffset: 0
+    tiltOffset: 0
     invertPan: 0
     invertTilt: 0
   - type: 1
@@ -182,6 +184,7 @@ MonoBehaviour:
     mode40ch: 0
     hidden: 0
     panOffset: 0
+    tiltOffset: 0
     invertPan: 0
     invertTilt: 0
   - type: 1
@@ -191,6 +194,7 @@ MonoBehaviour:
     mode40ch: 0
     hidden: 0
     panOffset: 0
+    tiltOffset: 0
     invertPan: 0
     invertTilt: 0
   - type: 1
@@ -200,6 +204,7 @@ MonoBehaviour:
     mode40ch: 0
     hidden: 0
     panOffset: 0
+    tiltOffset: 0
     invertPan: 0
     invertTilt: 0
   - type: 2
@@ -209,6 +214,7 @@ MonoBehaviour:
     mode40ch: 0
     hidden: 0
     panOffset: 0
+    tiltOffset: 0
     invertPan: 0
     invertTilt: 0
   - type: 2
@@ -218,6 +224,7 @@ MonoBehaviour:
     mode40ch: 0
     hidden: 0
     panOffset: 0
+    tiltOffset: 0
     invertPan: 0
     invertTilt: 0
   - type: 2
@@ -227,6 +234,7 @@ MonoBehaviour:
     mode40ch: 0
     hidden: 0
     panOffset: 0
+    tiltOffset: 0
     invertPan: 0
     invertTilt: 0
   - type: 2
@@ -236,6 +244,7 @@ MonoBehaviour:
     mode40ch: 0
     hidden: 0
     panOffset: 0
+    tiltOffset: 0
     invertPan: 0
     invertTilt: 0
   - type: 3
@@ -245,6 +254,7 @@ MonoBehaviour:
     mode40ch: 0
     hidden: 0
     panOffset: 0
+    tiltOffset: 0
     invertPan: 0
     invertTilt: 0
   hazeBuildRate: 0.08
@@ -303,6 +313,7 @@ MonoBehaviour:
   roomDepth: 12
   ceiling: 4
   gigbarHeight: 2.2
+  danceFloorCenter: {x: 0, y: 0, z: 0}
   tubeSegments: 8
   gigbar: {fileID: 0}
   tubes:

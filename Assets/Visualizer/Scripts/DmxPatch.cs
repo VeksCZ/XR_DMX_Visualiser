@@ -17,6 +17,7 @@ public class FixtureEntry
 
     // Kalibrace moving headů (GigBar, Pocket Pro) – jen pro živá data ze SoundSwitche
     public float panOffset;  // ° přičtené k panu (kde má hlava „dopředu“)
+    public float tiltOffset; // ° přičtené k tiltu
     public bool invertPan;
     public bool invertTilt;
 
@@ -64,10 +65,10 @@ public class FixtureEntry
 
     public static List<FixtureEntry> Defaults() => new List<FixtureEntry>
     {
-        // GigBar: „dopředu“ je u jeho hlav kolem 1/3 rozsahu panu (ověřeno na datech ze SS) → +90°
-        new FixtureEntry(FixtureType.GigBarMoveILS, "GigBar", 200) { panOffset = 90f },
-        new FixtureEntry(FixtureType.PocketPro, "Pocket Pro L", 33),
-        new FixtureEntry(FixtureType.PocketPro, "Pocket Pro R", 46),
+        // Kalibrace spočítaná z pozice SS „Stage Center“ (2502.ssproj) → střed parketu
+        new FixtureEntry(FixtureType.GigBarMoveILS, "GigBar", 200) { panOffset = 102f, tiltOffset = -1f },
+        new FixtureEntry(FixtureType.PocketPro, "Pocket Pro L", 33) { panOffset = 10f, tiltOffset = 43f },
+        new FixtureEntry(FixtureType.PocketPro, "Pocket Pro R", 46) { panOffset = -44f, tiltOffset = 45f },
         new FixtureEntry(FixtureType.BatteryPar, "Uplight 1", 110),
         new FixtureEntry(FixtureType.BatteryPar, "Uplight 2", 120),
         new FixtureEntry(FixtureType.BatteryPar, "Uplight 3", 130),
@@ -274,9 +275,64 @@ public class DmxPatch : MonoBehaviour
             if (f.invertPan) pan = 1f - pan;
             if (f.invertTilt) tilt = 1f - tilt;
             pan += f.panOffset / Mathf.Max(1f, h.panRange);
+            tilt += f.tiltOffset / Mathf.Max(1f, h.tiltRange);
         }
         h.pan = pan;
         h.tilt = tilt;
+    }
+
+    // Kalibrace "aktuální pozice ze SS = bod target" (typicky střed parketu).
+    // Spočítá posun panu a tiltu tak, aby aktuální DMX hodnoty mířily do targetu.
+    // U GigBaru se průměruje přes obě hlavy (SS posílá oběma skoro stejné hodnoty).
+    // typeIndex = pořadí záznamu mezi světly stejného typu (Pocket Pro L = 0, R = 1).
+    public bool SolveOffsets(FixtureEntry f, int typeIndex, Vector3 target, out float panOffset, out float tiltOffset)
+    {
+        panOffset = tiltOffset = 0f;
+        if (f == null || scene == null || !FixtureEntry.HasMovers(f.type) || artnet == null || !artnet.HasData) return false;
+        var d = Uni(f.universe - 1);
+        if (d == null) return false;
+        var heads = new List<MovingHead>();
+        var bases = new List<int>();
+        if (f.type == FixtureType.GigBarMoveILS)
+        {
+            if (scene.gigbar == null) return false;
+            heads.Add(scene.gigbar.headL); bases.Add(f.address - 1 + 34);
+            heads.Add(scene.gigbar.headR); bases.Add(f.address - 1 + 43);
+        }
+        else
+        {
+            if (scene.pockets == null || typeIndex < 0 || typeIndex >= scene.pockets.Length) return false;
+            heads.Add(scene.pockets[typeIndex]); bases.Add(f.address - 1);
+        }
+        int n = 0;
+        for (int i = 0; i < heads.Count; i++)
+        {
+            var h = heads[i];
+            if (h == null) continue;
+            int b = bases[i];
+            float pan = ((I(d, b) << 8) | I(d, b + 1)) / 65535f;
+            float tilt = ((I(d, b + 2) << 8) | I(d, b + 3)) / 65535f;
+            if (f.invertPan) pan = 1f - pan;
+            if (f.invertTilt) tilt = 1f - tilt;
+            float p0 = (pan - 0.5f) * h.panRange, t0 = (tilt - 0.5f) * h.tiltRange;
+            h.AimAngles(target, out float yaw, out float tlt);
+            // Dvě řešení (tilt t / yaw, nebo tilt −t / yaw+180) a násobky 360° – bereme nejmenší posun.
+            float bestCost = float.MaxValue, bp = 0f, bt = 0f;
+            for (int s = 0; s < 2; s++)
+            {
+                float T = s == 0 ? tlt : -tlt, Y = s == 0 ? yaw : yaw + 180f;
+                for (int k = -2; k <= 2; k++)
+                {
+                    float po = Y + 360f * k - p0, to = T - t0;
+                    float c = Mathf.Abs(po) + Mathf.Abs(to);
+                    if (c < bestCost) { bestCost = c; bp = po; bt = to; }
+                }
+            }
+            panOffset += bp; tiltOffset += bt; n++;
+        }
+        if (n == 0) return false;
+        panOffset /= n; tiltOffset /= n;
+        return true;
     }
 
     // Živý odečet pro dialog Nastavení: surové 16bit hodnoty pan/tilt první hlavy světla

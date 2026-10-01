@@ -19,6 +19,8 @@ public class SceneBuilder : MonoBehaviour
 
     [Header("Rig")]
     public float gigbarHeight = 2.2f;
+    [Tooltip("Střed parketu – sem míří SS pozice Stage Center (kalibrace hlav)")]
+    public Vector3 danceFloorCenter = Vector3.zero;
     public int tubeSegments = 8; // 40ch mód; 80ch = 16
 
     [HideInInspector] public GigBar gigbar;
@@ -62,6 +64,12 @@ public class SceneBuilder : MonoBehaviour
         VisUtil.Prim(PrimitiveType.Cube, room, new Vector3(0, ceiling * 0.5f, -backZ), new Vector3(w, ceiling, 0.1f), VisUtil.WallMat);
         VisUtil.Prim(PrimitiveType.Cube, room, new Vector3(-w * 0.5f, ceiling * 0.5f, 0), new Vector3(0.1f, ceiling, d), VisUtil.WallMat);
         VisUtil.Prim(PrimitiveType.Cube, room, new Vector3(w * 0.5f, ceiling * 0.5f, 0), new Vector3(0.1f, ceiling, d), VisUtil.WallMat);
+
+        // Nenápadný křížek ve středu parketu (cíl kalibrace hlav)
+        var fc = danceFloorCenter + new Vector3(0, 0.002f, 0);
+        var markMat = VisUtil.LitMat(new Color(0.25f, 0.25f, 0.25f));
+        VisUtil.Prim(PrimitiveType.Cube, room, fc, new Vector3(0.4f, 0.002f, 0.03f), markMat);
+        VisUtil.Prim(PrimitiveType.Cube, room, fc, new Vector3(0.03f, 0.002f, 0.4f), markMat);
 
         // DJ stolek
         VisUtil.Prim(PrimitiveType.Cube, room, new Vector3(0, 0.45f, backZ + 2f), new Vector3(1.8f, 0.9f, 0.7f), VisUtil.LitMat(new Color(0.8f, 0.8f, 0.8f)));
