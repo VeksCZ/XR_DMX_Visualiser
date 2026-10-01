@@ -40,7 +40,17 @@ public class Laser : MonoBehaviour
                 pivot.localRotation = Quaternion.Euler(pitch, yaw, 0);
                 beams[k++] = VisUtil.Beam(pivot, 0.12f, beamLength, 0.001f);
             }
+
+        // tečky laseru na stěnách/stropu (viditelné i bez hazu)
+        var dirs = new Vector3[beams.Length];
+        var cols = new Color[beams.Length];
+        for (int i = 0; i < dirs.Length; i++) { dirs[i] = rotor.GetChild(i).localRotation * Vector3.forward; cols[i] = Color.white; }
+        float sa = Mathf.Min(170f, coverage + 20f);
+        dots = VisUtil.DotSpot(rotor, sa, beamLength, VisUtil.DotCookie("laser" + columns + "x" + rows + "_" + coverage, dirs, cols, sa, 0.4f));
     }
+
+    public float dotIntensity = 10f;
+    Light dots;
 
     void Update()
     {
@@ -50,5 +60,6 @@ public class Laser : MonoBehaviour
         for (int i = 0; i < beams.Length; i++)
             VisUtil.SetColor(beams[i], color, I * brightness);
         VisUtil.SetColor(aperture, color, I * 4f);
+        if (dots != null) { dots.color = color; dots.intensity = I * dotIntensity; }
     }
 }

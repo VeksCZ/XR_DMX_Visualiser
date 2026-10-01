@@ -82,6 +82,52 @@ public static class VisUtil
         return l;
     }
 
+    // Spot s cookie z teček – promítá vícepaprskové efekty (derby, laser) na stěny a podlahu i bez hazu.
+    public static Light DotSpot(Transform parent, float angle, float range, Texture2D cookie)
+    {
+        var l = Spot(parent, angle, angle * 0.9f, range);
+        l.name = "DotSpot";
+        l.cookie = cookie;
+        return l;
+    }
+
+    static readonly Dictionary<string, Texture2D> cookieCache = new Dictionary<string, Texture2D>();
+
+    // Cookie s tečkami ve směrech dirs (lokální, osa +Z), barva tečky podle cols.
+    // Mapování odpovídá perspektivní projekci spotu se spotAngle.
+    public static Texture2D DotCookie(string key, Vector3[] dirs, Color[] cols, float spotAngle, float dotDeg, int size = 512)
+    {
+        if (cookieCache.TryGetValue(key, out var cached) && cached != null) return cached;
+        var px = new Color32[size * size];
+        float tHalf = Mathf.Tan(spotAngle * 0.5f * Mathf.Deg2Rad);
+        for (int k = 0; k < dirs.Length; k++)
+        {
+            Vector3 d = dirs[k].normalized;
+            if (d.z <= 0.05f) continue;
+            float u = 0.5f + 0.5f * (d.x / d.z) / tHalf;
+            float v = 0.5f + 0.5f * (d.y / d.z) / tHalf;
+            float cos = d.z;
+            float r = Mathf.Max(1.2f, Mathf.Tan(dotDeg * 0.5f * Mathf.Deg2Rad) / (cos * cos) / tHalf * 0.5f * size);
+            int cx = Mathf.RoundToInt(u * size), cy = Mathf.RoundToInt(v * size), ri = Mathf.CeilToInt(r + 1);
+            for (int y = cy - ri; y <= cy + ri; y++)
+                for (int x = cx - ri; x <= cx + ri; x++)
+                {
+                    if (x < 1 || y < 1 || x >= size - 1 || y >= size - 1) continue;   // okraj musí zůstat černý
+                    float a = Mathf.Clamp01(r + 0.5f - Mathf.Sqrt((x - u * size) * (x - u * size) + (y - v * size) * (y - v * size)));
+                    if (a <= 0f) continue;
+                    var c = cols[k] * a;
+                    int i = y * size + x;
+                    var o = px[i];
+                    px[i] = new Color32((byte)Mathf.Max(o.r, c.r * 255f), (byte)Mathf.Max(o.g, c.g * 255f), (byte)Mathf.Max(o.b, c.b * 255f), 255);
+                }
+        }
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, name = "DotCookie " + key };
+        tex.SetPixels32(px);
+        tex.Apply(false, true);
+        cookieCache[key] = tex;
+        return tex;
+    }
+
     public static Light Point(Transform parent, Vector3 pos, float range)
     {
         var go = new GameObject("Glow");
