@@ -413,6 +413,30 @@ public class DmxPatch : MonoBehaviour
         float spd = Mathf.Lerp(1f, 0.1f, F(d, b + 11));
         h.maxPanSpeed = 300f * spd;
         h.maxTiltSpeed = 200f * spd;
+
+        // P/T makra (ch 9: 0-7 nic, 8-255 = makro 1-31 po 8 hodnotách; ch 10 rychlost pomalu→rychle).
+        // Tvary maker ADJ nepopisuje – kreslíme typické obrazce kolem nastavené pozice.
+        int mv = I(d, b + 8);
+        if (mv >= 8)
+        {
+            int m = Mathf.Min((mv - 8) / 8, 30);
+            float hz = Mathf.Lerp(0.08f, 0.8f, F(d, b + 9));
+            float a = Time.time * hz * Mathf.PI * 2f;
+            float amp = 12f + 6f * (m / 6);                    // ° – větší čísla maker = větší obrazec
+            float x, y;
+            switch (m % 6)
+            {
+                case 0: x = Mathf.Cos(a); y = Mathf.Sin(a); break;                  // kruh
+                case 1: x = Mathf.Sin(a); y = Mathf.Sin(2f * a) * 0.5f; break;      // osmička
+                case 2: x = Mathf.Sin(a); y = 0f; break;                            // vodorovně
+                case 3: x = 0f; y = Mathf.Sin(a); break;                            // svisle
+                case 4: x = Mathf.Sin(a); y = Mathf.Sin(a); break;                  // úhlopříčka
+                default: x = Mathf.Clamp(Mathf.Cos(a) * 1.4f, -1f, 1f); y = Mathf.Clamp(Mathf.Sin(a) * 1.4f, -1f, 1f); break; // čtverec
+            }
+            h.pan += x * amp / Mathf.Max(1f, h.panRange);
+            h.tilt += y * amp / Mathf.Max(1f, h.tiltRange);
+            h.maxPanSpeed = 400f; h.maxTiltSpeed = 300f;     // makro řídí pohyb samo
+        }
         h.color = PocketColor(I(d, b + 4));
 
         int gv = I(d, b + 5);                                  // 8 slotů po 8 hodnotách, slot 1 = open
