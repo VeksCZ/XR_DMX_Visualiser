@@ -19,15 +19,15 @@ public class QuestTools : MonoBehaviour
     const string RemoteSettings = "/sdcard/Android/data/" + Package + "/files/settings.json";
     const string PlatformToolsUrl = "https://dl.google.com/android/repository/platform-tools-latest-windows.zip";
 
-    public string adbPath;          // null = nenalezeno
-    public string device;           // sériové číslo připojeného Questu
-    public string deviceModel;
-    public string deviceState;      // device / unauthorized / offline / null
-    public string installedVersion; // verze aplikace v Questu, null = není nainstalovaná
-    public bool busy;
-    public string status = "";
-    public bool statusError;
-    public float progress = -1f;
+    [NonSerialized] public string adbPath;          // null = nenalezeno
+    [NonSerialized] public string device;           // sériové číslo připojeného Questu
+    [NonSerialized] public string deviceModel;
+    [NonSerialized] public string deviceState;      // device / unauthorized / offline / null
+    [NonSerialized] public string installedVersion; // verze aplikace v Questu, null = není nainstalovaná
+    [NonSerialized] public bool busy;
+    [NonSerialized] public string status = "";
+    [NonSerialized] public bool statusError;
+    [NonSerialized] public float progress = -1f;
 
     string appDir, tmpDir;
 
@@ -283,9 +283,9 @@ public class QuestTools : MonoBehaviour
 // Na Questu (Android) se ADB nástroje nepoužívají – prázdná náhrada, ať se do APK nedostanou Process/ZipFile.
 public class QuestTools : UnityEngine.MonoBehaviour
 {
-    public string adbPath, device, deviceModel, deviceState, installedVersion, status = "";
-    public bool busy, statusError;
-    public float progress = -1f;
+    [System.NonSerialized] public string adbPath, device, deviceModel, deviceState, installedVersion, status = "";
+    [System.NonSerialized] public bool busy, statusError;
+    [System.NonSerialized] public float progress = -1f;
     public void Detect() { }
     public void DownloadAdb() { }
     public void InstallApp() { }
