@@ -1,3 +1,4 @@
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR
 using System;
 using System.Collections;
 using System.Diagnostics;
@@ -278,3 +279,16 @@ public class QuestTools : MonoBehaviour
         return lines.Length == 0 ? "" : lines[lines.Length - 1].Trim();
     }
 }
+#else
+// Na Questu (Android) se ADB nástroje nepoužívají – prázdná náhrada, ať se do APK nedostanou Process/ZipFile.
+public class QuestTools : UnityEngine.MonoBehaviour
+{
+    public string adbPath, device, deviceModel, deviceState, installedVersion, status = "";
+    public bool busy, statusError;
+    public float progress = -1f;
+    public void Detect() { }
+    public void DownloadAdb() { }
+    public void InstallApp() { }
+    public void PushSettings(VisualizerSettings s) { }
+}
+#endif

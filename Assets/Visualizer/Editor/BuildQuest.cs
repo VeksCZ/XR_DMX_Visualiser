@@ -27,6 +27,8 @@ public static class BuildQuest
         var android = NamedBuildTarget.Android;
         PlayerSettings.SetScriptingBackend(android, ScriptingImplementation.IL2CPP);
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+        // Rychlejší IL2CPP build (méně generovaného C++); na výkon této aplikace nemá znatelný vliv
+        PlayerSettings.SetIl2CppCodeGeneration(android, UnityEditor.Build.Il2CppCodeGeneration.OptimizeSize);
         PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel32;
         PlayerSettings.SetApplicationIdentifier(android, AppId);
         PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
