@@ -435,25 +435,117 @@ public class DmxPatch : MonoBehaviour
     // Mode 1 (12ch): 0 Intensity, 1 Strobe, 2 Color macro, 3 Background, 4 Base tint,
     //                5 Effects, 6 Effect speed, 7 R, 8 G, 9 B, 10 W, 11 A
     // Mode 2 (40ch): 8 pixelů × R,G,B,W,A
+    // Rozsahy podle manuálu tuby: Color 0-10 nic / 11-255 barvy, Background 0 = nic,
+    // Effect 0-10 vypnuto, 11-214 = 60 efektů, 215-220 všechny dokola, 221-255 do zvuku.
+    // Názvy jednotlivých 60 efektů manuál neuvádí – rodiny níže jsou přiblížení, ověřené jsou
+    // 138 = 4 segmenty + 4 mezery jedou shora dolů, 200 = plynoucí duha.
     void ApplyTube(byte[] d, int b, PixelTube t, bool mode40ch)
     {
         if (t == null || t.pixels == null) return;
+        int n = t.pixels.Length;
         if (!mode40ch)
         {
-            Color c = VisUtil.RGBWA(F(d, b + 7), F(d, b + 8), F(d, b + 9), F(d, b + 10), F(d, b + 11));
+            Color fg = VisUtil.RGBWA(F(d, b + 7), F(d, b + 8), F(d, b + 9), F(d, b + 10), F(d, b + 11));
+            if (TubeMacro(I(d, b + 2), out Color mc)) fg = mc;
+            TubeMacro(I(d, b + 3), out Color bg); // bez barvy pozadí = černá
             float gate = VisUtil.StrobeGate(StrobeHz(I(d, b + 1)));
-            for (int i = 0; i < t.pixels.Length; i++) t.pixels[i] = c * gate;
+            int fx = I(d, b + 5);
+            if (fx <= 10) for (int i = 0; i < n; i++) t.pixels[i] = fg;
+            else
+            {
+                if (fg.maxColorComponent < 0.01f) fg = Color.white; // efekt bez barvy svítí bíle
+                int idx = fx <= 214 ? Mathf.Min((fx - 11) * 60 / 204, 59)
+                        : Mathf.FloorToInt(Time.time / 8f) % 60;        // všechny efekty / do zvuku: střídat
+                TubeEffect(t.pixels, idx, F(d, b + 6), fg, bg);
+            }
+            for (int i = 0; i < n; i++) t.pixels[i] *= gate;
             t.master = F(d, b);
         }
         else
         {
-            int n = Mathf.Min(t.pixels.Length, 8);
+            // 8 DMX pixelů roztažených na segmenty modelu
             for (int i = 0; i < n; i++)
             {
-                int o = b + i * 5;
+                int o = b + Mathf.Min(i * 8 / n, 7) * 5;
                 t.pixels[i] = VisUtil.RGBWA(F(d, o), F(d, o + 1), F(d, o + 2), F(d, o + 3), F(d, o + 4));
             }
             t.master = 1f;
+        }
+    }
+
+    // Barevná makra tuby (pořadí odhadnuté, 11-255 rozděleno rovnoměrně)
+    static readonly Color[] TubeColors =
+    {
+        Color.red, new Color(1f, 0.45f, 0f), Color.yellow, new Color(0.5f, 1f, 0f), Color.green,
+        new Color(0f, 1f, 0.6f), Color.cyan, new Color(0f, 0.5f, 1f), Color.blue, new Color(0.5f, 0f, 1f),
+        Color.magenta, new Color(1f, 0.3f, 0.6f), Color.white, new Color(1f, 0.8f, 0.55f), new Color(1f, 0.6f, 0.1f),
+    };
+    static bool TubeMacro(int v, out Color c)
+    {
+        c = Color.black;
+        if (v <= 10) return false;
+        c = TubeColors[Mathf.Min((v - 11) * TubeColors.Length / 245, TubeColors.Length - 1)];
+        return true;
+    }
+
+    // Efekty tuby: 6 rodin po 10 variantách (index 0-59). Liché varianty jedou shora dolů.
+    // speed 0-1 (kanál Effect speed, víc = rychleji). pixels[0] je dole.
+    static void TubeEffect(Color[] px, int idx, float speed, Color fg, Color bg)
+    {
+        int n = px.Length;
+        int fam = idx / 10, v = idx % 10;
+        float dir = v % 2 == 1 ? 1f : -1f;                        // +1 = posun dolů
+        float ph = Time.time * Mathf.Lerp(0.15f, 2.5f, speed);     // cykly za sekundu
+        for (int i = 0; i < n; i++)
+        {
+            float u = (i + 0.5f) / n;                              // 0 dole, 1 nahoře
+            Color c;
+            switch (fam)
+            {
+                case 0: // běžící světlo s ocasem (délka podle varianty)
+                {
+                    float head = Mathf.Repeat(-dir * ph, 1f);
+                    float dist = Mathf.Repeat((u - head) * dir, 1f); // vzdálenost za hlavou
+                    float tail = 0.08f + 0.06f * (v / 2);
+                    c = Color.Lerp(bg, fg, Mathf.Clamp01(1f - dist / tail));
+                    break;
+                }
+                case 1: // stírání: barva se nasouvá a zase odjíždí
+                {
+                    float p = Mathf.Repeat(ph * 0.5f, 1f) * 2f;
+                    float edge = p < 1f ? p : p - 1f;
+                    float pos = dir > 0 ? 1f - u : u;
+                    bool on = p < 1f ? pos < edge : pos >= edge;
+                    c = on ? fg : bg;
+                    break;
+                }
+                case 2: // blok jezdí tam a zpět (ping-pong)
+                {
+                    float center = Mathf.PingPong(ph * 2f, 1f);
+                    float w = 0.12f + 0.04f * (v / 2);
+                    c = Mathf.Abs(u - center) < w ? fg : bg;
+                    break;
+                }
+                case 3: // segmenty s mezerami jedou po tubě (2 nebo 4 segmenty)
+                {
+                    int blocks = v < 4 ? 2 : 4;
+                    c = Mathf.Repeat(u * blocks + dir * ph, 1f) < 0.5f ? fg : bg;
+                    break;
+                }
+                case 4: // dýchání / jiskření
+                    if (v < 5) c = Color.Lerp(bg, fg, 0.5f + 0.5f * Mathf.Sin(ph * Mathf.PI * 2f));
+                    else
+                    {
+                        float r = Mathf.Repeat(Mathf.Sin((i + 1) * 12.9898f + Mathf.Floor(ph * 4f) * 78.233f) * 43758.55f, 1f);
+                        c = r > 0.7f ? fg : bg;
+                    }
+                    break;
+                default: // duha: v < 5 celá tuba mění barvu, jinak duha plyne po tubě
+                    c = v < 5 ? Color.HSVToRGB(Mathf.Repeat(ph * 0.5f, 1f), 1f, 1f)
+                              : Color.HSVToRGB(Mathf.Repeat(u + dir * ph * 0.5f, 1f), 1f, 1f);
+                    break;
+            }
+            px[i] = c;
         }
     }
 }

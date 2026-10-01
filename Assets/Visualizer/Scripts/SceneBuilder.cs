@@ -114,7 +114,7 @@ public class SceneBuilder : MonoBehaviour
             go.transform.localPosition = new Vector3(tx[i], 0.25f, backZ + 1.6f);
             VisUtil.Prim(PrimitiveType.Cylinder, go.transform, new Vector3(0, -0.125f, 0), new Vector3(0.03f, 0.125f, 0.03f), VisUtil.BodyMat);
             var t = go.AddComponent<PixelTube>();
-            t.segments = tubeSegments;
+            t.segments = Mathf.Max(16, tubeSegments); // jemnější dělení kvůli efektům tuby (40ch se roztáhne)
             t.Build();
             tubes[i] = t;
         }
