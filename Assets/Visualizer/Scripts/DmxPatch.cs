@@ -15,6 +15,13 @@ public class FixtureEntry
     public bool mode40ch;   // jen pro tuby (režim kanálů index 1)
     public bool hidden;     // vypnuté ve scéně (zatržítko v Nastavení → Světla)
 
+    // Kalibrace moving headů (GigBar, Pocket Pro) – jen pro živá data ze SoundSwitche
+    public float panOffset;  // ° přičtené k panu (kde má hlava „dopředu“)
+    public bool invertPan;
+    public bool invertTilt;
+
+    public static bool HasMovers(FixtureType t) => t == FixtureType.GigBarMoveILS || t == FixtureType.PocketPro;
+
     public FixtureEntry() { }
     public FixtureEntry(FixtureType t, string n, int addr) { type = t; name = n; address = addr; }
 
@@ -57,7 +64,8 @@ public class FixtureEntry
 
     public static List<FixtureEntry> Defaults() => new List<FixtureEntry>
     {
-        new FixtureEntry(FixtureType.GigBarMoveILS, "GigBar", 200),
+        // GigBar: „dopředu“ je u jeho hlav kolem 1/3 rozsahu panu (ověřeno na datech ze SS) → +90°
+        new FixtureEntry(FixtureType.GigBarMoveILS, "GigBar", 200) { panOffset = 90f },
         new FixtureEntry(FixtureType.PocketPro, "Pocket Pro L", 33),
         new FixtureEntry(FixtureType.PocketPro, "Pocket Pro R", 46),
         new FixtureEntry(FixtureType.BatteryPar, "Uplight 1", 110),
@@ -122,7 +130,7 @@ public class DmxPatch : MonoBehaviour
             switch (f.type)
             {
                 case FixtureType.GigBarMoveILS:
-                    if (!gigbarDone) { if (on) ApplyGigbar(d, a); gigbarDone = true; }
+                    if (!gigbarDone) { if (on) ApplyGigbar(d, a, f); gigbarDone = true; }
                     break;
                 case FixtureType.BatteryPar:
                     if (on && pars < scene.uplights.Length) ApplyBatteryPar(d, a, scene.uplights[pars]);
@@ -136,7 +144,7 @@ public class DmxPatch : MonoBehaviour
                     if (!hazerDone) { if (on) hazeOut = F(d, a); hazerDone = true; }
                     break;
                 case FixtureType.PocketPro:
-                    if (on && scene.pockets != null && pockets < scene.pockets.Length) ApplyPocketPro(d, a, scene.pockets[pockets]);
+                    if (on && scene.pockets != null && pockets < scene.pockets.Length) ApplyPocketPro(d, a, scene.pockets[pockets], f);
                     pockets++;
                     break;
             }
@@ -188,7 +196,7 @@ public class DmxPatch : MonoBehaviour
     // Flash 26-29 jas 4 bílých LED, 30 strobe
     // Laser 31 barva, 32 strobe, 33 rotace
     // Spot 1 34-42 / Spot 2 43-51: Pan, Pan fine, Tilt, Tilt fine, Speed, Color, Gobo, Dimmer, Shutter
-    void ApplyGigbar(byte[] d, int b)
+    void ApplyGigbar(byte[] d, int b, FixtureEntry f)
     {
         var g = scene.gigbar;
         ApplyBarPar(d, b + 0, g.parL);
@@ -208,8 +216,8 @@ public class DmxPatch : MonoBehaviour
         g.laser.strobeHz = GigStrobeHz(I(d, b + 32));
         g.laser.patternSpeed = Rotation(I(d, b + 33), 90f);
 
-        ApplyMover(d, b + 34, g.headL);
-        ApplyMover(d, b + 43, g.headR);
+        ApplyMover(d, b + 34, g.headL, f);
+        ApplyMover(d, b + 43, g.headR, f);
     }
 
     void ApplyBarPar(byte[] d, int b, ParLight p)
@@ -256,10 +264,37 @@ public class DmxPatch : MonoBehaviour
         else if (v >= 146 && v <= 215) h.strobeHz = UnityEngine.Random.Range(2f, 15f);
     }
 
-    void ApplyMover(byte[] d, int b, MovingHead h)
+    // Pan/tilt 16bit + kalibrace z nastavení (posun „dopředu“, otočení směrů)
+    static void PanTilt(byte[] d, int b, MovingHead h, FixtureEntry f)
     {
-        h.pan = ((I(d, b) << 8) | I(d, b + 1)) / 65535f;
-        h.tilt = ((I(d, b + 2) << 8) | I(d, b + 3)) / 65535f;
+        float pan = ((I(d, b) << 8) | I(d, b + 1)) / 65535f;
+        float tilt = ((I(d, b + 2) << 8) | I(d, b + 3)) / 65535f;
+        if (f != null)
+        {
+            if (f.invertPan) pan = 1f - pan;
+            if (f.invertTilt) tilt = 1f - tilt;
+            pan += f.panOffset / Mathf.Max(1f, h.panRange);
+        }
+        h.pan = pan;
+        h.tilt = tilt;
+    }
+
+    // Živý odečet pro dialog Nastavení: surové 16bit hodnoty pan/tilt první hlavy světla
+    public bool ReadPanTilt(FixtureEntry f, out int pan, out int tilt)
+    {
+        pan = tilt = 0;
+        if (artnet == null || !artnet.HasData || f == null || !FixtureEntry.HasMovers(f.type)) return false;
+        var d = Uni(f.universe - 1);
+        if (d == null) return false;
+        int b = f.address - 1 + (f.type == FixtureType.GigBarMoveILS ? 34 : 0);
+        pan = (I(d, b) << 8) | I(d, b + 1);
+        tilt = (I(d, b + 2) << 8) | I(d, b + 3);
+        return true;
+    }
+
+    void ApplyMover(byte[] d, int b, MovingHead h, FixtureEntry f)
+    {
+        PanTilt(d, b, h, f);
         // Speed: 0 = nejrychleji (typicky u Chauvet), 255 = nejpomaleji
         float spd = Mathf.Lerp(1f, 0.1f, F(d, b + 4));
         h.maxPanSpeed = 300f * spd;
@@ -315,11 +350,10 @@ public class DmxPatch : MonoBehaviour
         return Color.HSVToRGB(Mathf.Repeat(Time.time * 0.3f, 1f), 1f, 1f); // rotace kola
     }
 
-    void ApplyPocketPro(byte[] d, int b, MovingHead h)
+    void ApplyPocketPro(byte[] d, int b, MovingHead h, FixtureEntry f)
     {
         if (h == null) return;
-        h.pan = ((I(d, b) << 8) | I(d, b + 1)) / 65535f;
-        h.tilt = ((I(d, b + 2) << 8) | I(d, b + 3)) / 65535f;
+        PanTilt(d, b, h, f);
         float spd = Mathf.Lerp(1f, 0.1f, F(d, b + 11));
         h.maxPanSpeed = 300f * spd;
         h.maxTiltSpeed = 200f * spd;

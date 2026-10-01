@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 [Serializable]
 public class VisualizerSettings
 {
-    public int version = 5;
+    public int version = 6;
     public List<FixtureEntry> fixtures;
     public float hazeBuildRate = 0.08f;
     public float hazeDecay = 0.01f;
@@ -46,7 +46,12 @@ public class VisualizerSettings
             s.fixtures.Insert(at, new FixtureEntry(FixtureType.PocketPro, "Pocket Pro R", 46));
             s.fixtures.Insert(at, new FixtureEntry(FixtureType.PocketPro, "Pocket Pro L", 33));
         }
-        s.version = 5;
+        if (s.version < 6)
+        {
+            // v0.5.1: hlavy GigBaru mají „dopředu“ kolem 1/3 rozsahu panu
+            foreach (var f in s.fixtures) if (f.type == FixtureType.GigBarMoveILS && f.panOffset == 0f) f.panOffset = 90f;
+        }
+        s.version = 6;
         return s;
     }
 
@@ -88,6 +93,9 @@ public class VisualizerMenu : MonoBehaviour
     readonly List<string> eAddr = new List<string>();
     readonly List<bool> e40 = new List<bool>();
     readonly List<bool> eOn = new List<bool>();
+    readonly List<string> eOffset = new List<string>();
+    readonly List<bool> eInvPan = new List<bool>();
+    readonly List<bool> eInvTilt = new List<bool>();
     int selFixture;
     bool modeSelectOpen;
     Rect selectRect, selectPopupRect;
@@ -233,7 +241,7 @@ public class VisualizerMenu : MonoBehaviour
     {
         var l = new List<FixtureEntry>();
         foreach (var f in src)
-            l.Add(new FixtureEntry { type = f.type, name = f.name, universe = f.universe, address = f.address, mode40ch = f.mode40ch, hidden = f.hidden });
+            l.Add(new FixtureEntry { type = f.type, name = f.name, universe = f.universe, address = f.address, mode40ch = f.mode40ch, hidden = f.hidden, panOffset = f.panOffset, invertPan = f.invertPan, invertTilt = f.invertTilt });
         return l;
     }
 
@@ -249,7 +257,7 @@ public class VisualizerMenu : MonoBehaviour
 
     void LoadEditor()
     {
-        eName.Clear(); eUni.Clear(); eAddr.Clear(); e40.Clear(); eOn.Clear();
+        eName.Clear(); eUni.Clear(); eAddr.Clear(); e40.Clear(); eOn.Clear(); eOffset.Clear(); eInvPan.Clear(); eInvTilt.Clear();
         foreach (var f in stFixtures)
         {
             eName.Add(f.name);
@@ -257,6 +265,9 @@ public class VisualizerMenu : MonoBehaviour
             eAddr.Add(f.address.ToString());
             e40.Add(f.mode40ch);
             eOn.Add(!f.hidden);
+            eOffset.Add(f.panOffset.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture));
+            eInvPan.Add(f.invertPan);
+            eInvTilt.Add(f.invertTilt);
         }
         selFixture = Mathf.Clamp(selFixture, 0, Mathf.Max(0, stFixtures.Count - 1));
         modeSelectOpen = false;
@@ -272,7 +283,10 @@ public class VisualizerMenu : MonoBehaviour
             string nm = string.IsNullOrWhiteSpace(eName[i]) ? FixtureEntry.TypeLabel(f.type) : eName[i].Trim();
             if (!int.TryParse(eUni[i], out int u) || u < 1 || u > 16) { settingsError = Loc.F("errUniverse", nm); settingsTab = 1; selFixture = i; return false; }
             if (!int.TryParse(eAddr[i], out int a) || a < 1 || a + ch - 1 > 512) { settingsError = Loc.F("errAddress", nm, 513 - ch); settingsTab = 1; selFixture = i; return false; }
+            if (!float.TryParse(eOffset[i].Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float po) || po < -540f || po > 540f)
+            { settingsError = Loc.F("errOffset", nm); settingsTab = 1; selFixture = i; return false; }
             f.name = nm; f.universe = u; f.address = a; f.mode40ch = e40[i]; f.hidden = !eOn[i];
+            f.panOffset = po; f.invertPan = eInvPan[i]; f.invertTilt = eInvTilt[i];
         }
         s.fixtures = CloneList(stFixtures);
         s.showStatusBar = stStatus;
@@ -699,7 +713,7 @@ public class VisualizerMenu : MonoBehaviour
             modeSelectOpen = false;
 
         // Obsah záložky má pevnou výšku – tlačítka jsou vždy na stejném místě vpravo dole
-        GUILayout.BeginVertical(GUILayout.Height(470 * k));
+        GUILayout.BeginVertical(GUILayout.Height(520 * k));
         if (settingsTab == 0)
         {
             GUILayout.Label(Loc.T("language"), sHead);
@@ -848,9 +862,46 @@ public class VisualizerMenu : MonoBehaviour
                 GUILayout.Label(Loc.F("channelsInfo", ch, a, a + ch - 1), sDim);
             string ov = Overlap(i);
             if (ov != null) GUILayout.Label(Loc.F("overlap", ov), sWarn);
+
+            if (FixtureEntry.HasMovers(f.type)) DrawCalibration(i, f, lw);
         }
         GUILayout.EndVertical();
         GUILayout.EndHorizontal();
+    }
+
+    // Kalibrace moving headů + živý odečet pan/tilt ze SoundSwitche
+    void DrawCalibration(int i, FixtureEntry f, float lw)
+    {
+        GUILayout.Space(10 * k);
+        GUILayout.Label(Loc.T("calibration"), sHead);
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(Loc.T("panOffset"), sLabel, GUILayout.Width(lw));
+        eOffset[i] = GUILayout.TextField(eOffset[i], sField, GUILayout.Width(60 * k));
+        GUILayout.Label("°", sLabel, GUILayout.Width(16 * k));
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+        GUILayout.BeginHorizontal();
+        eInvPan[i] = GUILayout.Toggle(eInvPan[i], " " + Loc.T("invertPan"), sToggle);
+        eInvTilt[i] = GUILayout.Toggle(eInvTilt[i], " " + Loc.T("invertTilt"), sToggle);
+        GUILayout.EndHorizontal();
+
+        // živé hodnoty podle aktuálně zadané adresy (i před uložením)
+        int.TryParse(eUni[i], out int u);
+        int.TryParse(eAddr[i], out int a);
+        var probe = new FixtureEntry { type = f.type, universe = u, address = a };
+        float panRange = 540f, tiltRange = f.type == FixtureType.PocketPro ? 230f : 180f;
+        if (patch != null && patch.ReadPanTilt(probe, out int pv, out int tv))
+        {
+            float pn = pv / 65535f, tn = tv / 65535f;
+            if (eInvPan[i]) pn = 1f - pn;
+            if (eInvTilt[i]) tn = 1f - tn;
+            float.TryParse(eOffset[i].Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float po);
+            float panDeg = (pn - 0.5f) * panRange + po;
+            float tiltDeg = (tn - 0.5f) * tiltRange;
+            GUILayout.Label(Loc.F("liveValues", pv, panDeg.ToString("+0;-0;0"), tv, tiltDeg.ToString("+0;-0;0")), sLabel);
+        }
+        else GUILayout.Label(Loc.T("liveNone"), sDim);
+        GUILayout.Label(Loc.T("calibrationHint"), sDim);
     }
 
     // ---- Aktualizace ----
