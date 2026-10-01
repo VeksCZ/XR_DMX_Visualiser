@@ -50,9 +50,16 @@ public class ArtNetReceiver : MonoBehaviour
         running = true;
 
         var bound = new List<string>();
+#if UNITY_ANDROID && !UNITY_EDITOR
+        // Quest (Linux): socket navázaný na konkrétní IP nedostává broadcast (ArtPoll),
+        // proto 0.0.0.0 + multicast lock, jinak Wi-Fi broadcasty zahazuje.
+        AcquireMulticastLock();
+        if (TryListen(IPAddress.Any)) bound.Add("0.0.0.0");
+#else
         foreach (var ip in LocalIPv4())
             if (TryListen(ip)) bound.Add(ip.ToString());
         if (bound.Count == 0 && TryListen(IPAddress.Any)) bound.Add("0.0.0.0");
+#endif
 
         bindInfo = bound.Count > 0 ? string.Join(", ", bound) + " : " + port : "port " + port + " nejde otevřít";
         Debug.Log("Art-Net: poslouchám na " + bindInfo);
@@ -84,10 +91,50 @@ public class ArtNetReceiver : MonoBehaviour
         running = false;
         foreach (var l in listeners) { try { l.udp.Close(); } catch { } }
         listeners.Clear();
+#if UNITY_ANDROID && !UNITY_EDITOR
+        try { multicastLock?.Call("release"); } catch { }
+#endif
     }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+    AndroidJavaObject multicastLock;
+    float nextAnnounce;
+
+    void AcquireMulticastLock()
+    {
+        try
+        {
+            using (var up = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+            using (var activity = up.GetStatic<AndroidJavaObject>("currentActivity"))
+            using (var wifi = activity.Call<AndroidJavaObject>("getSystemService", "wifi"))
+            {
+                multicastLock = wifi.Call<AndroidJavaObject>("createMulticastLock", "artnet");
+                multicastLock.Call("setReferenceCounted", false);
+                multicastLock.Call("acquire");
+            }
+        }
+        catch (Exception e) { Debug.LogWarning("Art-Net: multicast lock – " + e.Message); }
+    }
+
+    // Kdyby se ArtPoll přes Wi-Fi ztratil, ohlásíme se sami každé 3 s.
+    void Announce()
+    {
+        if (Time.unscaledTime < nextAnnounce || listeners.Count == 0) return;
+        nextAnnounce = Time.unscaledTime + 3f;
+        try
+        {
+            var reply = BuildPollReply(DefaultIP().GetAddressBytes());
+            listeners[0].udp.Send(reply, reply.Length, new IPEndPoint(IPAddress.Broadcast, port));
+        }
+        catch { }
+    }
+#endif
 
     void Update()
     {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        Announce();
+#endif
         if (gotPacket)
         {
             gotPacket = false;
@@ -209,6 +256,10 @@ public class ArtNetReceiver : MonoBehaviour
                 return ((IPEndPoint)s.LocalEndPoint).Address;
             }
         }
-        catch { return IPAddress.Loopback; }
+        catch
+        {
+            var l = LocalIPv4(); // síť bez výchozí brány (hotspot bez internetu)
+            return l.Count > 0 ? l[0] : IPAddress.Loopback;
+        }
     }
 }

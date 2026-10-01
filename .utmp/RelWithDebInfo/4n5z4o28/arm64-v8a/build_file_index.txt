@@ -1,0 +1,2 @@
+C:\Users\veks\source\repos\XR_DMX_Visualiser\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\CMakeLists.txt
+C:\Users\veks\source\repos\XR_DMX_Visualiser\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\GameActivity\CMakeLists.txt

@@ -1,0 +1,5 @@
+C:/Users/veks/source/repos/XR_DMX_Visualiser/.utmp/RelWithDebInfo/4n5z4o28/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/veks/source/repos/XR_DMX_Visualiser/.utmp/RelWithDebInfo/4n5z4o28/arm64-v8a/CMakeFiles/rebuild_cache.dir
+C:/Users/veks/source/repos/XR_DMX_Visualiser/.utmp/RelWithDebInfo/4n5z4o28/arm64-v8a/GameActivity/CMakeFiles/game.dir
+C:/Users/veks/source/repos/XR_DMX_Visualiser/.utmp/RelWithDebInfo/4n5z4o28/arm64-v8a/GameActivity/CMakeFiles/edit_cache.dir
+C:/Users/veks/source/repos/XR_DMX_Visualiser/.utmp/RelWithDebInfo/4n5z4o28/arm64-v8a/GameActivity/CMakeFiles/rebuild_cache.dir

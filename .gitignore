@@ -35,3 +35,6 @@ crashlytics-build.properties
 # OS
 .DS_Store
 Thumbs.db
+
+/Assets/_Recovery/
+/Assets/_Recovery.meta

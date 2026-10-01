@@ -148,7 +148,7 @@ public class VisualizerMenu : MonoBehaviour
         Loc.En = s.language == "en";
 
         Application.runInBackground = true;
-        Application.targetFrameRate = 60;
+        Application.targetFrameRate = VRRig.IsVR ? -1 : 60;   // v brýlích určuje snímky headset (72–120 Hz)
 
         float back = -scene.roomDepth * 0.5f;
         float front = -back;
@@ -162,8 +162,9 @@ public class VisualizerMenu : MonoBehaviour
         };
 
         ApplyToPatch();
-        SetCamera(s.cameraPreset);
         winOpen[WinPanel] = s.panelOpen;
+        if (VRRig.IsVR) { uiVisible = false; return; }   // v brýlích se 2D menu nekreslí (VR menu přijde zvlášť)
+        SetCamera(s.cameraPreset);
         if (s.fullscreen) GoFullscreen();
         else if (!Application.isEditor) Screen.SetResolution(s.windowWidth, s.windowHeight, FullScreenMode.Windowed);
     }
@@ -334,6 +335,7 @@ public class VisualizerMenu : MonoBehaviour
     void SetCamera(int i)
     {
         if (cams == null || i < 0 || i >= cams.Length) return;
+        if (VRRig.Instance != null) { VRRig.Instance.Teleport(cams[i].pos, cams[i].look); s.cameraPreset = i; return; }
         var cam = Camera.main;
         if (cam == null) return;
         cam.transform.position = cams[i].pos;

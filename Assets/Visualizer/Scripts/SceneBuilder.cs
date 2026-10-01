@@ -181,6 +181,17 @@ public class SceneBuilder : MonoBehaviour
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = Color.black;
         cam.allowHDR = true;
+        if (VRRig.IsVR)
+        {
+            // Quest: bez HDR a post-processingu (bloom je na mobilním GPU drahý), hlava na parketu
+            cam.allowHDR = false;
+            var data = cam.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            if (data != null) data.renderPostProcessing = false;
+            var fly = cam.GetComponent<FlyCamera>();
+            if (fly != null) Destroy(fly);
+            VRRig.Create(cam, new Vector3(0, 0, 1.5f), 180f);
+            return;
+        }
         cam.transform.position = new Vector3(0, 1.7f, roomDepth * 0.5f - 1.5f);
         cam.transform.LookAt(new Vector3(0, 1.6f, backZ + 1.3f));
         if (cam.GetComponent<FlyCamera>() == null) cam.gameObject.AddComponent<FlyCamera>();
