@@ -43,7 +43,7 @@ public static class BuildQuest
         if (!perTarget.HasManagerSettingsForBuildTarget(BuildTargetGroup.Android)) perTarget.CreateDefaultManagerSettingsForBuildTarget(BuildTargetGroup.Android);
         var gs = perTarget.SettingsForBuildTarget(BuildTargetGroup.Android);
         gs.InitManagerOnStart = true;
-        XRPackageMetadataStore.AssignLoader(gs.AssignedSettings, typeof(OpenXRLoader).FullName, BuildTargetGroup.Android);
+        XRPackageMetadataStore.AssignLoader(gs.Manager, typeof(OpenXRLoader).FullName, BuildTargetGroup.Android);
         EditorUtility.SetDirty(gs);
         EditorUtility.SetDirty(perTarget);
 
@@ -60,6 +60,17 @@ public static class BuildQuest
         oxr.renderMode = OpenXRSettings.RenderMode.SinglePassInstanced;
         EditorUtility.SetDirty(oxr);
 
+        // OpenXR doporučení (validace projektu): nové typy ovládacích prvků Input Systemu
+        foreach (var t in new[] { NamedBuildTarget.Android, NamedBuildTarget.Standalone })
+        {
+            var defs = PlayerSettings.GetScriptingDefineSymbols(t).Split(';').Where(s => s.Length > 0).ToList();
+            foreach (var d in new[] { "USE_INPUT_SYSTEM_POSE_CONTROL", "USE_STICK_CONTROL_THUMBSTICKS" })
+                if (!defs.Contains(d)) defs.Add(d);
+            PlayerSettings.SetScriptingDefineSymbols(t, string.Join(";", defs));
+        }
+
+        RemoveSSAO();
+        SetDebugSymbolsSymbolTable();
         AssetDatabase.SaveAssets();
         Debug.Log("Quest: projekt nastaven (Android = OpenXR + Meta Quest, Windows bez XR)");
     }
@@ -92,6 +103,41 @@ public static class BuildQuest
         string adb = FindAdb();
         Run(adb, "install -r -g \"" + Path.GetFullPath(ApkPath) + "\"");
         Run(adb, "shell monkey -p " + AppId + " 1");
+    }
+
+    // SSAO ze šablony URP: v tmavém sále s aditivními paprsky není vidět, na Questu i slabším PC jen žere výkon.
+    static void RemoveSSAO()
+    {
+        foreach (var guid in AssetDatabase.FindAssets("t:UniversalRendererData"))
+        {
+            var rd = AssetDatabase.LoadAssetAtPath<UnityEngine.Rendering.Universal.UniversalRendererData>(AssetDatabase.GUIDToAssetPath(guid));
+            if (rd == null) continue;
+            int i = rd.rendererFeatures.FindIndex(f => f != null && f.GetType().Name == "ScreenSpaceAmbientOcclusion");
+            if (i < 0) continue;
+            var feat = rd.rendererFeatures[i];
+            rd.rendererFeatures.RemoveAt(i);
+            var mapField = typeof(UnityEngine.Rendering.Universal.ScriptableRendererData).GetField("m_RendererFeatureMap", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (mapField?.GetValue(rd) is System.Collections.Generic.List<long> map && i < map.Count) map.RemoveAt(i);
+            AssetDatabase.RemoveObjectFromAsset(feat);
+            Object.DestroyImmediate(feat, true);
+            rd.SetDirty();
+            EditorUtility.SetDirty(rd);
+            Debug.Log("Quest: odstraněn SSAO z " + rd.name);
+        }
+    }
+
+    // Diagnostika je zapnutá → Unity chce symboly aspoň v režimu SymbolTable (čitelné crash reporty).
+    static void SetDebugSymbolsSymbolTable()
+    {
+        foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+        {
+            var t = asm.GetType("UnityEditor.Android.UserBuildSettings+DebugSymbols");
+            var p = t?.GetProperty("level", BindingFlags.Static | BindingFlags.Public);
+            if (p == null) continue;
+            p.SetValue(null, System.Enum.Parse(p.PropertyType, "SymbolTable"));
+            return;
+        }
+        Debug.LogWarning("Quest: nastavení Debug Symbols nenalezeno");
     }
 
     static string FindAdb()
