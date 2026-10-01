@@ -10,6 +10,8 @@ public static class BuildVisualizer
 {
     const string ScenePath = "Assets/Visualizer/Visualizer.unity";
     const string OutPath = "Build/Windows/DMXVisualiser.exe";
+    // Verze aplikace – zvyšovat s každým vydáním (tag na GitHubu = "v" + Version)
+    public const string Version = "0.5.0";
 
     [MenuItem("Tools/Visualizer/Build Windows EXE")]
     public static void Build()
@@ -32,6 +34,7 @@ public static class BuildVisualizer
 
         PlayerSettings.companyName = "VeksCZ";
         PlayerSettings.productName = "DMX Visualiser";
+        PlayerSettings.bundleVersion = Version;
         PlayerSettings.runInBackground = true;      // přijímat Art-Net i bez fokusu
         PlayerSettings.visibleInBackground = true;
         PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
@@ -49,8 +52,6 @@ public static class BuildVisualizer
         var report = BuildPipeline.BuildPlayer(opts);
         Debug.Log("Visualizer build: " + report.summary.result + " -> " + OutPath +
                   " (" + (report.summary.totalSize / (1024 * 1024)) + " MB, chyb: " + report.summary.totalErrors + ")");
-        if (!Application.isBatchMode && report.summary.result == BuildResult.Succeeded)
-            EditorUtility.RevealInFinder(OutPath);
     }
 }
 #endif

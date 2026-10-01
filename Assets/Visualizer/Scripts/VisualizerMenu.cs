@@ -6,11 +6,11 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 #endif
 
-// Nastavení ukládané do persistentDataPath/settings.json (přežije restart i nový build).
+// Nastavení ukládané do persistentDataPath/settings.json (přežije restart i aktualizaci).
 [Serializable]
 public class VisualizerSettings
 {
-    public int version = 3;
+    public int version = 4;
     public List<FixtureEntry> fixtures;
     public float hazeBuildRate = 0.08f;
     public float hazeDecay = 0.01f;
@@ -20,6 +20,7 @@ public class VisualizerSettings
     public int windowHeight = 900;
     public string language = "";      // "cs" / "en", prázdné = podle systému
     public bool showStatusBar = true;
+    public bool panelOpen = true;
 
     public static string FilePath => Path.Combine(Application.persistentDataPath, "settings.json");
 
@@ -36,7 +37,8 @@ public class VisualizerSettings
         if (string.IsNullOrEmpty(s.language))
             s.language = Application.systemLanguage == SystemLanguage.Czech || Application.systemLanguage == SystemLanguage.Slovak ? "cs" : "en";
         if (s.windowWidth < 640 || s.windowHeight < 360) { s.windowWidth = 1600; s.windowHeight = 900; }
-        s.version = 3;
+        if (s.version < 4) s.panelOpen = true;
+        s.version = 4;
         return s;
     }
 
@@ -47,50 +49,54 @@ public class VisualizerSettings
     }
 }
 
-// Rozhraní aplikace (IMGUI): horní lišta s menu, zavíratelná okna, stavová lišta dole.
+// Rozhraní aplikace (IMGUI): strohá horní lišta, ovládací panel, dialog Nastavení,
+// nápověda, aktualizace a stavová lišta. Ve fullscreenu lišta zmizí, panel zůstane.
 public class VisualizerMenu : MonoBehaviour
 {
     SceneBuilder scene;
     DmxPatch patch;
     ArtNetReceiver artnet;
+    Updater updater;
     VisualizerSettings s;
 
-    // ---- stav UI ----
     bool uiVisible = true;
-    int openMenu = -1;                 // otevřené rozbalovací menu na liště
+    int openMenu = -1;
     Rect dropRect;
-    readonly Rect[] menuLabelRects = new Rect[4];
+    readonly Rect[] menuLabelRects = new Rect[3];
     string msg;
     float msgTime;
 
     // Okna
-    const int WinLights = 0, WinArtNet = 1, WinHaze = 2, WinControls = 3, WinAbout = 4;
+    const int WinPanel = 0, WinSettings = 1, WinControls = 2, WinUpdates = 3, WinAbout = 4;
     readonly bool[] winOpen = new bool[5];
     readonly Rect[] winRect = new Rect[5];
-    Vector2 lightsScroll;
 
-    // Editace patche
+    // Dialog Nastavení – rozpracované hodnoty, potvrdí se OK / Použít
+    int settingsTab;
+    bool stEn, stStatus;
+    List<FixtureEntry> stFixtures;
     readonly List<string> eName = new List<string>();
     readonly List<string> eUni = new List<string>();
     readonly List<string> eAddr = new List<string>();
     readonly List<bool> e40 = new List<bool>();
+    Vector2 lightsScroll;
+    string settingsError;
 
-    // Kamera
     struct Cam { public string key; public Vector3 pos, look; }
     Cam[] cams;
 
-    // Statistiky
     int lastPackets;
     float ppsTimer, pps, fps;
 
-    // Styly
     float k = 1f;
     bool stylesReady;
-    GUIStyle sBar, sBarItem, sDrop, sDropItem, sWin, sClose, sLabel, sHead, sDim, sWarn, sButton, sField, sToggle, sStatus;
-    Texture2D tBar, tDrop, tWin, tHover, tOn, tStatus;
+    GUIStyle sBar, sBarItem, sDrop, sDropItem, sWin, sWinTitle, sClose, sLabel, sHead, sDim, sWarn, sButton, sBig, sTab, sField, sToggle, sStatus;
+    string[] winTitles = new string[5];
+    Texture2D tBar, tDrop, tWin, tHover, tOn, tStatus, tTabOn, tCloseHover;
 
-    float BarH => 26 * k;
-    float StatusH => 24 * k;
+    bool IsFullscreen => Screen.fullScreenMode != FullScreenMode.Windowed;
+    float BarH => IsFullscreen ? 0f : 26 * k;
+    float StatusH => s.showStatusBar ? 24 * k : 0f;
 
     // ------------------------------------------------------------------
 
@@ -99,6 +105,8 @@ public class VisualizerMenu : MonoBehaviour
         scene = GetComponent<SceneBuilder>();
         patch = GetComponent<DmxPatch>();
         artnet = GetComponent<ArtNetReceiver>();
+        updater = GetComponent<Updater>();
+        if (updater == null) updater = gameObject.AddComponent<Updater>();
         s = VisualizerSettings.Load();
         Loc.En = s.language == "en";
 
@@ -117,14 +125,14 @@ public class VisualizerMenu : MonoBehaviour
         };
 
         ApplyToPatch();
-        LoadEditor();
         SetCamera(s.cameraPreset);
-        if (s.fullscreen) GoFullscreen(); else if (!Application.isEditor) Screen.SetResolution(s.windowWidth, s.windowHeight, FullScreenMode.Windowed);
+        winOpen[WinPanel] = s.panelOpen;
+        if (s.fullscreen) GoFullscreen();
+        else if (!Application.isEditor) Screen.SetResolution(s.windowWidth, s.windowHeight, FullScreenMode.Windowed);
     }
 
     void Update()
     {
-        // pkt/s a FPS
         fps = Mathf.Lerp(fps, 1f / Mathf.Max(Time.unscaledDeltaTime, 0.001f), 0.05f);
         ppsTimer += Time.unscaledDeltaTime;
         if (ppsTimer >= 1f && artnet != null)
@@ -134,8 +142,7 @@ public class VisualizerMenu : MonoBehaviour
             ppsTimer = 0f;
         }
 
-        // Při psaní do textového pole klávesové zkratky ignorujeme
-        if (GUIUtility.keyboardControl != 0) return;
+        if (GUIUtility.keyboardControl != 0) return;   // píše se do textového pole
 #if ENABLE_INPUT_SYSTEM
         var kb = Keyboard.current;
         if (kb == null) return;
@@ -157,7 +164,9 @@ public class VisualizerMenu : MonoBehaviour
     void EscapePressed()
     {
         if (openMenu >= 0) { openMenu = -1; return; }
-        for (int i = 0; i < winOpen.Length; i++) winOpen[i] = false;
+        bool closed = false;
+        for (int i = 1; i < winOpen.Length; i++) if (winOpen[i]) { winOpen[i] = false; closed = true; }
+        if (!closed && IsFullscreen) ToggleFullscreen();
     }
 
     // ------------------------------------------------------------------
@@ -166,17 +175,33 @@ public class VisualizerMenu : MonoBehaviour
     void ApplyToPatch()
     {
         if (patch == null) return;
-        patch.fixtures = new List<FixtureEntry>();
-        foreach (var f in s.fixtures)
-            patch.fixtures.Add(new FixtureEntry { type = f.type, name = f.name, universe = f.universe, address = f.address, mode40ch = f.mode40ch });
+        patch.fixtures = CloneList(s.fixtures);
         patch.hazeBuildRate = s.hazeBuildRate;
         patch.hazeDecay = s.hazeDecay;
+    }
+
+    static List<FixtureEntry> CloneList(List<FixtureEntry> src)
+    {
+        var l = new List<FixtureEntry>();
+        foreach (var f in src)
+            l.Add(new FixtureEntry { type = f.type, name = f.name, universe = f.universe, address = f.address, mode40ch = f.mode40ch });
+        return l;
+    }
+
+    void OpenSettings()
+    {
+        stEn = Loc.En;
+        stStatus = s.showStatusBar;
+        stFixtures = CloneList(s.fixtures);
+        LoadEditor();
+        settingsError = null;
+        OpenWindow(WinSettings);
     }
 
     void LoadEditor()
     {
         eName.Clear(); eUni.Clear(); eAddr.Clear(); e40.Clear();
-        foreach (var f in s.fixtures)
+        foreach (var f in stFixtures)
         {
             eName.Add(f.name);
             eUni.Add(f.universe.ToString());
@@ -185,32 +210,38 @@ public class VisualizerMenu : MonoBehaviour
         }
     }
 
-    string StoreEditor()
+    // Zkontroluje a uloží vše z dialogu. Vrací true, když se povedlo.
+    bool ApplySettings()
     {
-        for (int i = 0; i < s.fixtures.Count; i++)
+        for (int i = 0; i < stFixtures.Count; i++)
         {
-            var f = s.fixtures[i];
+            var f = stFixtures[i];
             int ch = FixtureEntry.Channels(f.type, e40[i]);
             string nm = string.IsNullOrWhiteSpace(eName[i]) ? FixtureEntry.TypeLabel(f.type) : eName[i].Trim();
-            if (!int.TryParse(eUni[i], out int u) || u < 1 || u > 16) return Loc.F("errUniverse", nm);
-            if (!int.TryParse(eAddr[i], out int a) || a < 1 || a + ch - 1 > 512) return Loc.F("errAddress", nm, 513 - ch);
-            f.name = nm;
-            f.universe = u;
-            f.address = a;
-            f.mode40ch = e40[i];
+            if (!int.TryParse(eUni[i], out int u) || u < 1 || u > 16) { settingsError = Loc.F("errUniverse", nm); settingsTab = 1; return false; }
+            if (!int.TryParse(eAddr[i], out int a) || a < 1 || a + ch - 1 > 512) { settingsError = Loc.F("errAddress", nm, 513 - ch); settingsTab = 1; return false; }
+            f.name = nm; f.universe = u; f.address = a; f.mode40ch = e40[i];
         }
-        return null;
+        s.fixtures = CloneList(stFixtures);
+        s.showStatusBar = stStatus;
+        Loc.En = stEn;
+        s.language = stEn ? "en" : "cs";
+        ApplyToPatch();
+        s.Save();
+        settingsError = null;
+        Flash(Loc.T("saved"));
+        return true;
     }
 
     string Overlap(int i)
     {
         if (!int.TryParse(eUni[i], out int u) || !int.TryParse(eAddr[i], out int a)) return null;
-        int end = a + FixtureEntry.Channels(s.fixtures[i].type, e40[i]) - 1;
-        for (int j = 0; j < s.fixtures.Count; j++)
+        int end = a + FixtureEntry.Channels(stFixtures[i].type, e40[i]) - 1;
+        for (int j = 0; j < stFixtures.Count; j++)
         {
             if (j == i) continue;
             if (!int.TryParse(eUni[j], out int u2) || !int.TryParse(eAddr[j], out int a2) || u2 != u) continue;
-            int end2 = a2 + FixtureEntry.Channels(s.fixtures[j].type, e40[j]) - 1;
+            int end2 = a2 + FixtureEntry.Channels(stFixtures[j].type, e40[j]) - 1;
             if (a <= end2 && a2 <= end) return eName[j];
         }
         return null;
@@ -228,9 +259,7 @@ public class VisualizerMenu : MonoBehaviour
         s.cameraPreset = i;
     }
 
-    bool IsFullscreen => Screen.fullScreenMode != FullScreenMode.Windowed;
-
-    // Fullscreen vždy v nativním rozlišení monitoru – jinak by obraz zůstal v rozlišení okna.
+    // Fullscreen vždy v nativním rozlišení monitoru; ovládací panel zůstane otevřený.
     void GoFullscreen()
     {
         if (!IsFullscreen) { s.windowWidth = Screen.width; s.windowHeight = Screen.height; }
@@ -239,6 +268,8 @@ public class VisualizerMenu : MonoBehaviour
         int h = d.systemHeight > 0 ? d.systemHeight : Screen.currentResolution.height;
         Screen.SetResolution(w, h, FullScreenMode.FullScreenWindow);
         s.fullscreen = true;
+        openMenu = -1;
+        winOpen[WinPanel] = true;
     }
 
     void GoWindowed()
@@ -253,22 +284,23 @@ public class VisualizerMenu : MonoBehaviour
         s.Save();
     }
 
-    void SetLanguage(bool en)
+    void TogglePanel()
     {
-        Loc.En = en;
-        s.language = en ? "en" : "cs";
+        winOpen[WinPanel] = !winOpen[WinPanel];
+        s.panelOpen = winOpen[WinPanel];
         s.Save();
     }
 
     void OpenWindow(int w)
     {
-        if (w == WinLights && !winOpen[w]) LoadEditor();
         winOpen[w] = true;
         if (winRect[w].width < 1)
         {
-            float width = w == WinLights ? 470 : w == WinAbout || w == WinControls ? 440 : 400;
-            winRect[w] = new Rect(16 * k + w * 24 * k, BarH + 12 * k + w * 24 * k, width * k, 10);
+            float width = w == WinSettings ? 500 : w == WinPanel ? 340 : 440;
+            float x = w == WinPanel ? 16 * k : 380 * k;
+            winRect[w] = new Rect(x, 40 * k, width * k, 10);
         }
+        if (w == WinUpdates && (updater.state == Updater.State.Idle || updater.state == Updater.State.Error)) updater.Check();
         GUI.FocusWindow(10 + w);
     }
 
@@ -287,20 +319,13 @@ public class VisualizerMenu : MonoBehaviour
     void OnApplicationQuit() { if (s != null) s.Save(); }
 
     // ------------------------------------------------------------------
-    // Menu – definice položek
+    // Menu
 
-    struct Item
-    {
-        public string label, shortcut;
-        public bool check, separator, header;
-        public Action action;
-    }
-
+    struct Item { public string label, shortcut; public bool check, separator; public Action action; }
     static Item It(string label, Action a, string sc = null, bool check = false) => new Item { label = label, action = a, shortcut = sc, check = check };
     static Item Sep() => new Item { separator = true };
-    static Item Head(string label) => new Item { label = label, header = true };
 
-    string[] MenuTitles => new[] { Loc.T("file"), Loc.T("view"), Loc.T("settings"), Loc.T("help") };
+    string[] MenuTitles => new[] { Loc.T("file"), Loc.T("view"), Loc.T("help") };
 
     List<Item> MenuItems(int m)
     {
@@ -308,30 +333,18 @@ public class VisualizerMenu : MonoBehaviour
         switch (m)
         {
             case 0:
-                l.Add(It(Loc.T("saveSettings"), () => { s.Save(); Flash(Loc.T("saved")); }));
-                l.Add(It(Loc.T("resetPatch"), () => { s.fixtures = FixtureEntry.Defaults(); ApplyToPatch(); LoadEditor(); s.Save(); Flash(Loc.T("saved")); }));
+                l.Add(It(Loc.T("settingsMenu"), OpenSettings));
                 l.Add(Sep());
                 l.Add(It(Loc.T("quit"), Quit, "Alt+F4"));
                 break;
             case 1:
-                l.Add(Head(Loc.T("camera")));
-                for (int i = 0; i < cams.Length; i++) { int c = i; l.Add(It(Loc.T(cams[i].key), () => SetCamera(c), (i + 1).ToString(), s.cameraPreset == i)); }
-                l.Add(Sep());
+                l.Add(It(Loc.T("panelMenu"), TogglePanel, null, winOpen[WinPanel]));
                 l.Add(It(Loc.T("fullscreen"), ToggleFullscreen, "F11", IsFullscreen));
-                l.Add(It(Loc.T("statusBar"), () => { s.showStatusBar = !s.showStatusBar; s.Save(); }, null, s.showStatusBar));
-                l.Add(It(Loc.T("hideUI"), () => uiVisible = false, "H"));
                 break;
             case 2:
-                l.Add(It(Loc.T("lightsMenu"), () => OpenWindow(WinLights)));
-                l.Add(It(Loc.T("artnetMenu"), () => OpenWindow(WinArtNet)));
-                l.Add(It(Loc.T("hazeMenu"), () => OpenWindow(WinHaze)));
-                l.Add(Sep());
-                l.Add(Head(Loc.T("language")));
-                l.Add(It("Čeština", () => SetLanguage(false), null, !Loc.En));
-                l.Add(It("English", () => SetLanguage(true), null, Loc.En));
-                break;
-            case 3:
                 l.Add(It(Loc.T("controlsMenu"), () => OpenWindow(WinControls)));
+                l.Add(It(Loc.T("updatesMenu"), () => { OpenWindow(WinUpdates); updater.Check(); }));
+                l.Add(Sep());
                 l.Add(It(Loc.T("aboutMenu"), () => OpenWindow(WinAbout)));
                 break;
         }
@@ -351,7 +364,6 @@ public class VisualizerMenu : MonoBehaviour
 
     void EnsureStyles()
     {
-        // Velikost UI podle DPI monitoru, ne podle velikosti okna – menu má pořád stejnou velikost.
         float nk = Screen.dpi > 0 ? Mathf.Clamp(Screen.dpi / 96f, 1f, 2f) : 1f;
         if (stylesReady && Mathf.Approximately(nk, k) && tBar != null) return;
         k = nk;
@@ -361,22 +373,22 @@ public class VisualizerMenu : MonoBehaviour
         tDrop = Tex(new Color(0.15f, 0.15f, 0.18f, 1f));
         tWin = Tex(new Color(0.09f, 0.09f, 0.11f, 0.97f));
         tHover = Tex(new Color(0.22f, 0.42f, 0.70f, 1f));
-        tOn = Tex(new Color(0.20f, 0.20f, 0.24f, 1f));
+        tOn = Tex(new Color(0.22f, 0.22f, 0.26f, 1f));
         tStatus = Tex(new Color(0.08f, 0.08f, 0.10f, 0.92f));
+        tTabOn = Tex(new Color(0.18f, 0.45f, 0.75f, 1f));
+        tCloseHover = Tex(new Color(0.75f, 0.2f, 0.2f, 1f));
 
         var text = new Color(0.93f, 0.93f, 0.95f);
-        var dim = new Color(0.62f, 0.64f, 0.70f);
+        var dim = new Color(0.64f, 0.66f, 0.72f);
         int fs = Mathf.RoundToInt(13 * k);
 
         sBar = new GUIStyle(); sBar.normal.background = tBar;
         sBarItem = new GUIStyle { fontSize = fs, alignment = TextAnchor.MiddleCenter, padding = new RectOffset((int)(10 * k), (int)(10 * k), 0, 0) };
         sBarItem.normal.textColor = text;
-        sBarItem.hover.background = tOn; sBarItem.hover.textColor = Color.white;
-        sBarItem.onNormal.background = tOn; sBarItem.onNormal.textColor = Color.white;
-        sBarItem.onHover.background = tOn; sBarItem.onHover.textColor = Color.white;
+        sBarItem.hover.background = sBarItem.onNormal.background = sBarItem.onHover.background = tOn;
+        sBarItem.hover.textColor = sBarItem.onNormal.textColor = sBarItem.onHover.textColor = Color.white;
 
-        sDrop = new GUIStyle { padding = new RectOffset(0, 0, (int)(4 * k), (int)(4 * k)) };
-        sDrop.normal.background = tDrop;
+        sDrop = new GUIStyle(); sDrop.normal.background = tDrop;
         sDropItem = new GUIStyle { fontSize = fs, alignment = TextAnchor.MiddleLeft, padding = new RectOffset((int)(10 * k), (int)(10 * k), 0, 0) };
         sDropItem.normal.textColor = text;
         sDropItem.hover.background = tHover; sDropItem.hover.textColor = Color.white;
@@ -385,12 +397,13 @@ public class VisualizerMenu : MonoBehaviour
         sWin.normal.background = sWin.onNormal.background = tWin;
         sWin.normal.textColor = sWin.onNormal.textColor = text;
         sWin.border = new RectOffset(2, 2, 2, 2);
-        sWin.padding = new RectOffset((int)(12 * k), (int)(12 * k), (int)(34 * k), (int)(12 * k));
-        sWin.contentOffset = new Vector2(12 * k, 8 * k);
+        sWin.padding = new RectOffset((int)(12 * k), (int)(12 * k), (int)(42 * k), (int)(12 * k));
+        sWinTitle = new GUIStyle { fontSize = fs + 1, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
+        sWinTitle.normal.textColor = text;
 
         sClose = new GUIStyle { fontSize = Mathf.RoundToInt(16 * k), alignment = TextAnchor.MiddleCenter };
         sClose.normal.textColor = dim;
-        sClose.hover.textColor = Color.white; sClose.hover.background = Tex(new Color(0.75f, 0.2f, 0.2f, 1f));
+        sClose.hover.textColor = Color.white; sClose.hover.background = tCloseHover;
 
         sLabel = new GUIStyle(GUI.skin.label) { fontSize = fs, wordWrap = true };
         sLabel.normal.textColor = text;
@@ -400,6 +413,10 @@ public class VisualizerMenu : MonoBehaviour
         sWarn = new GUIStyle(sDim);
         sWarn.normal.textColor = new Color(1f, 0.6f, 0.45f);
         sButton = new GUIStyle(GUI.skin.button) { fontSize = fs, fixedHeight = 26 * k };
+        sBig = new GUIStyle(sButton) { fixedHeight = 32 * k, fontStyle = FontStyle.Bold };
+        sTab = new GUIStyle(sButton);
+        sTab.onNormal.background = sTab.onHover.background = sTab.onActive.background = tTabOn;
+        sTab.onNormal.textColor = sTab.onHover.textColor = Color.white;
         sField = new GUIStyle(GUI.skin.textField) { fontSize = fs, fixedHeight = 22 * k };
         sToggle = new GUIStyle(GUI.skin.toggle) { fontSize = fs };
         sToggle.normal.textColor = sToggle.onNormal.textColor = text;
@@ -419,26 +436,24 @@ public class VisualizerMenu : MonoBehaviour
         if (!uiVisible) return;
         var e = Event.current;
 
-        // Klik mimo rozbalené menu ho zavře
         if (openMenu >= 0 && e.type == EventType.MouseDown && !dropRect.Contains(e.mousePosition) && !new Rect(0, 0, Screen.width, BarH).Contains(e.mousePosition))
             openMenu = -1;
 
-        // Okna
-        string[] titles = { Loc.T("lightsTitle"), Loc.T("artnetTitle"), Loc.T("hazeTitle"), Loc.T("controlsTitle"), Loc.T("aboutTitle") };
+        string[] titles = { Loc.T("panelTitle"), Loc.T("settingsTitle"), Loc.T("controlsTitle"), Loc.T("updatesTitle"), Loc.T("aboutTitle") };
+        winTitles = titles;
         for (int w = 0; w < winOpen.Length; w++)
         {
             if (!winOpen[w]) continue;
-            winRect[w] = GUILayout.Window(10 + w, winRect[w], DrawWindow, titles[w], sWin);
-            // držet okno v obrazovce
+            if (winRect[w].width < 1) OpenWindow(w);
+            winRect[w] = GUILayout.Window(10 + w, winRect[w], DrawWindow, GUIContent.none, sWin);
             winRect[w].x = Mathf.Clamp(winRect[w].x, 0, Screen.width - 60 * k);
-            winRect[w].y = Mathf.Clamp(winRect[w].y, BarH, Screen.height - 40 * k);
+            winRect[w].y = Mathf.Clamp(winRect[w].y, BarH, Mathf.Max(BarH, Screen.height - StatusH - 40 * k));
         }
 
         DrawStatusBar();
-        DrawMenuBar();
+        if (!IsFullscreen) DrawMenuBar();
 
-        // Rozbalené menu jako okno, aby bylo vždy nahoře
-        if (openMenu >= 0)
+        if (openMenu >= 0 && !IsFullscreen)
         {
             var items = MenuItems(openMenu);
             float itemH = 24 * k, w = 260 * k, h = 8 * k;
@@ -458,8 +473,7 @@ public class VisualizerMenu : MonoBehaviour
 
     void DrawMenuBar()
     {
-        var bar = new Rect(0, 0, Screen.width, BarH);
-        GUI.Box(bar, GUIContent.none, sBar);
+        GUI.Box(new Rect(0, 0, Screen.width, BarH), GUIContent.none, sBar);
         float x = 4 * k;
         var titles = MenuTitles;
         for (int i = 0; i < titles.Length; i++)
@@ -470,13 +484,10 @@ public class VisualizerMenu : MonoBehaviour
             menuLabelRects[i] = r;
             bool on = openMenu == i;
             if (GUI.Toggle(r, on, c, sBarItem) != on) openMenu = on ? -1 : i;
-            // když je nějaké menu otevřené, najetí myší přepne na jiné
             if (openMenu >= 0 && openMenu != i && Event.current.type == EventType.Repaint && r.Contains(Event.current.mousePosition)) openMenu = i;
             x += w;
         }
-
-        // vpravo název a stav
-        var right = new GUIContent("DMX Visualiser");
+        var right = new GUIContent("DMX Visualiser " + Application.version);
         var rs = sDim.CalcSize(right);
         GUI.Label(new Rect(Screen.width - rs.x - 10 * k, (BarH - rs.y) * 0.5f, rs.x, rs.y), right, sDim);
     }
@@ -493,24 +504,16 @@ public class VisualizerMenu : MonoBehaviour
                 continue;
             }
             var r = new Rect(0, y, w, itemH);
-            if (it.header)
+            if (GUI.Button(r, (it.check ? "✓  " : "     ") + it.label, sDropItem))
             {
-                GUI.Label(new Rect(r.x + 10 * k, r.y + 3 * k, r.width, r.height), it.label, sDim);
+                openMenu = -1;
+                it.action?.Invoke();
             }
-            else
+            if (!string.IsNullOrEmpty(it.shortcut))
             {
-                string label = (it.check ? "✓  " : "     ") + it.label;
-                if (GUI.Button(r, label, sDropItem))
-                {
-                    openMenu = -1;
-                    it.action?.Invoke();
-                }
-                if (!string.IsNullOrEmpty(it.shortcut))
-                {
-                    var sc = new GUIContent(it.shortcut);
-                    var ss = sDim.CalcSize(sc);
-                    GUI.Label(new Rect(w - ss.x - 12 * k, y + (itemH - ss.y) * 0.5f, ss.x, ss.y), sc, sDim);
-                }
+                var sc = new GUIContent(it.shortcut);
+                var ss = sDim.CalcSize(sc);
+                GUI.Label(new Rect(w - ss.x - 12 * k, y + (itemH - ss.y) * 0.5f, ss.x, ss.y), sc, sDim);
             }
             y += itemH;
         }
@@ -520,10 +523,8 @@ public class VisualizerMenu : MonoBehaviour
     {
         if (!s.showStatusBar) return;
         bool has = artnet != null && artnet.HasData;
-        bool forced = patch != null && patch.forceDemo;
-        string state = forced ? "<color=#f0b040>◐ " + Loc.T("forced") + "</color>"
-                     : has ? "<color=#4be07a>● " + Loc.T("live") + "</color>"
-                     : "<color=#9aa0aa>○ " + Loc.T("demo") + "</color>";
+        bool demo = patch != null && patch.forceDemo;
+        string state = demo || !has ? "<color=#f0b040>◐ " + Loc.T("demo") + "</color>" : "<color=#4be07a>● " + Loc.T("live") + "</color>";
 
         var unis = new SortedSet<int>();
         if (patch != null) foreach (var f in patch.fixtures) unis.Add(f.universe);
@@ -535,73 +536,136 @@ public class VisualizerMenu : MonoBehaviour
             + "    |    " + Loc.T("listen") + ": " + (artnet != null ? artnet.bindInfo : "-")
             + "    |    " + Loc.T("universe") + ": " + string.Join(", ", unis)
             + "    |    " + Loc.T("camera") + ": " + Loc.T(cams[Mathf.Clamp(s.cameraPreset, 0, cams.Length - 1)].key)
-            + "    |    Haze " + Mathf.RoundToInt((patch != null && has && !forced ? patch.hazeDensity : scene.haze / 3f) * 100) + " %"
+            + "    |    Haze " + HazePercent() + " %"
             + "    |    " + Mathf.RoundToInt(fps) + " FPS";
         GUI.Label(new Rect(0, Screen.height - StatusH, Screen.width, StatusH), text, sStatus);
     }
 
+    bool LiveData => artnet != null && artnet.HasData && patch != null && !patch.forceDemo;
+    int HazePercent() => Mathf.RoundToInt((LiveData ? patch.hazeDensity : scene.haze / 3f) * 100);
+
     void DrawWindow(int id)
     {
         int w = id - 10;
-        // zavírací křížek
-        if (GUI.Button(new Rect(winRect[w].width - 30 * k, 4 * k, 26 * k, 24 * k), "×", sClose)) winOpen[w] = false;
+        // titulek kreslíme sami – vestavěný titulek okna se překrýval s obsahem
+        GUI.Label(new Rect(12 * k, 6 * k, winRect[w].width - 50 * k, 24 * k), winTitles[w], sWinTitle);
+        GUI.DrawTexture(new Rect(0, 32 * k, winRect[w].width, 1), tOn);
+        if (GUI.Button(new Rect(winRect[w].width - 30 * k, 4 * k, 26 * k, 24 * k), "×", sClose))
+        {
+            winOpen[w] = false;
+            if (w == WinPanel) { s.panelOpen = false; s.Save(); }
+        }
 
         switch (w)
         {
-            case WinLights: DrawLights(); break;
-            case WinArtNet: DrawArtNet(); break;
-            case WinHaze: DrawHaze(); break;
+            case WinPanel: DrawPanel(); break;
+            case WinSettings: DrawSettings(); break;
             case WinControls: GUILayout.Label(Loc.T("controlsText"), sLabel); break;
+            case WinUpdates: DrawUpdates(); break;
             case WinAbout: GUILayout.Label(Loc.F("aboutText", Application.version), sLabel); break;
         }
         GUI.DragWindow(new Rect(0, 0, 10000, 30 * k));
     }
 
-    void DrawArtNet()
+    // ---- Ovládací panel ----
+    void DrawPanel()
     {
         bool has = artnet != null && artnet.HasData;
-        if (artnet != null)
-        {
-            GUILayout.Label(has ? Loc.F("receivingFrom", artnet.lastSender) : Loc.T("noData"), sHead);
-            GUILayout.Label(Loc.F("packetsInfo", artnet.packetsReceived, Mathf.RoundToInt(pps)), sLabel);
-            GUILayout.Label(Loc.T("listen") + ": " + artnet.bindInfo, sLabel);
-            GUILayout.Label(Loc.F("pollReplies", artnet.pollsAnswered), sLabel);
-        }
+        bool demo = patch != null && patch.forceDemo;
+        string st = demo ? "<color=#f0b040>◐</color> " + Loc.T("demoManual")
+                  : has ? "<color=#4be07a>●</color> " + Loc.F("liveFrom", artnet.lastSender)
+                  : "<color=#f0b040>◐</color> " + Loc.T("demoRunning");
+        var rich = new GUIStyle(sLabel) { richText = true };
+        GUILayout.Label(st, rich);
         GUILayout.Space(8 * k);
-        if (patch != null) patch.forceDemo = GUILayout.Toggle(patch.forceDemo, " " + Loc.T("forceDemo"), sToggle);
-        GUILayout.Space(8 * k);
-        GUILayout.Label(Loc.T("artnetHint"), sDim);
-    }
 
-    void DrawHaze()
-    {
-        bool live = artnet != null && artnet.HasData && patch != null && !patch.forceDemo;
-        if (live)
+        GUILayout.Label(Loc.T("camera") + "  (1–4)", sHead);
+        GUILayout.BeginHorizontal();
+        for (int i = 0; i < cams.Length; i++)
+            if (GUILayout.Toggle(s.cameraPreset == i, Loc.T(cams[i].key), sTab) && s.cameraPreset != i) SetCamera(i);
+        GUILayout.EndHorizontal();
+        GUILayout.Space(10 * k);
+
+        if (LiveData)
         {
-            GUILayout.Label(Loc.F("hazeLive", Mathf.RoundToInt(patch.hazeDensity * 100)), sHead);
+            GUILayout.Label(Loc.F("hazeLive", HazePercent()), sHead);
             patch.hazeDensity = GUILayout.HorizontalSlider(patch.hazeDensity, 0f, 1f);
         }
         else
         {
-            GUILayout.Label(Loc.F("hazeDemo", scene.haze.ToString("0.00")), sHead);
+            GUILayout.Label(Loc.F("hazeDemo", HazePercent()), sHead);
             scene.haze = GUILayout.HorizontalSlider(scene.haze, 0f, 3f);
         }
-        GUILayout.Space(10 * k);
-        GUILayout.Label(Loc.T("hazeHint"), sDim);
+        GUILayout.Space(12 * k);
+
+        if (patch != null)
+        {
+            if (GUILayout.Button(patch.forceDemo ? Loc.T("stopDemo") : Loc.T("startDemo"), sBig)) patch.forceDemo = !patch.forceDemo;
+            if (!has && !patch.forceDemo) GUILayout.Label(Loc.T("demoHint"), sDim);
+        }
+        GUILayout.Space(6 * k);
+        if (GUILayout.Button(IsFullscreen ? Loc.T("exitFullscreen") + "  (F11)" : Loc.T("fullscreen") + "  (F11)", sButton)) ToggleFullscreen();
     }
 
-    void DrawLights()
+    // ---- Nastavení ----
+    void DrawSettings()
+    {
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Toggle(settingsTab == 0, Loc.T("tabGeneral"), sTab)) settingsTab = 0;
+        if (GUILayout.Toggle(settingsTab == 1, Loc.T("tabLights"), sTab)) settingsTab = 1;
+        if (GUILayout.Toggle(settingsTab == 2, Loc.T("tabArtNet"), sTab)) settingsTab = 2;
+        GUILayout.EndHorizontal();
+        GUILayout.Space(10 * k);
+
+        if (settingsTab == 0)
+        {
+            GUILayout.Label(Loc.T("language"), sHead);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Toggle(!stEn, "Čeština", sTab)) stEn = false;
+            if (GUILayout.Toggle(stEn, "English", sTab)) stEn = true;
+            GUILayout.EndHorizontal();
+            GUILayout.Space(10 * k);
+            stStatus = GUILayout.Toggle(stStatus, " " + Loc.T("showStatusBar"), sToggle);
+        }
+        else if (settingsTab == 1)
+        {
+            DrawLightsEditor();
+        }
+        else
+        {
+            bool has = artnet != null && artnet.HasData;
+            if (artnet != null)
+            {
+                GUILayout.Label(has ? Loc.F("receivingFrom", artnet.lastSender) : Loc.T("noData"), sHead);
+                GUILayout.Label(Loc.F("packetsInfo", artnet.packetsReceived, Mathf.RoundToInt(pps)), sLabel);
+                GUILayout.Label(Loc.T("listen") + ": " + artnet.bindInfo, sLabel);
+                GUILayout.Label(Loc.F("pollReplies", artnet.pollsAnswered), sLabel);
+            }
+            GUILayout.Space(8 * k);
+            GUILayout.Label(Loc.T("artnetHint"), sDim);
+        }
+
+        GUILayout.Space(10 * k);
+        if (!string.IsNullOrEmpty(settingsError)) GUILayout.Label(settingsError, sWarn);
+        GUILayout.BeginHorizontal();
+        GUILayout.FlexibleSpace();
+        if (GUILayout.Button(Loc.T("ok"), sButton, GUILayout.Width(90 * k))) { if (ApplySettings()) winOpen[WinSettings] = false; }
+        if (GUILayout.Button(Loc.T("apply"), sButton, GUILayout.Width(90 * k))) ApplySettings();
+        if (GUILayout.Button(Loc.T("cancel"), sButton, GUILayout.Width(90 * k))) winOpen[WinSettings] = false;
+        GUILayout.EndHorizontal();
+    }
+
+    void DrawLightsEditor()
     {
         GUILayout.Label(Loc.T("patchHint"), sDim);
         GUILayout.Space(4 * k);
-
-        lightsScroll = GUILayout.BeginScrollView(lightsScroll, GUILayout.Height(Mathf.Min(Screen.height * 0.55f, 480 * k)));
-        for (int i = 0; i < s.fixtures.Count; i++)
+        lightsScroll = GUILayout.BeginScrollView(lightsScroll, GUILayout.Height(Mathf.Min(Screen.height * 0.5f, 420 * k)));
+        for (int i = 0; i < stFixtures.Count; i++)
         {
-            var f = s.fixtures[i];
+            var f = stFixtures[i];
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.BeginHorizontal();
-            eName[i] = GUILayout.TextField(eName[i], sField, GUILayout.Width(180 * k));
+            eName[i] = GUILayout.TextField(eName[i], sField, GUILayout.Width(190 * k));
             GUILayout.Label(FixtureEntry.TypeLabel(f.type), sDim);
             GUILayout.EndHorizontal();
 
@@ -623,17 +687,39 @@ public class VisualizerMenu : MonoBehaviour
             GUILayout.EndVertical();
         }
         GUILayout.EndScrollView();
-
-        GUILayout.Space(8 * k);
-        GUILayout.BeginHorizontal();
-        if (GUILayout.Button(Loc.T("apply"), sButton))
+        GUILayout.Space(6 * k);
+        if (GUILayout.Button(Loc.T("resetLights"), sButton))
         {
-            string err = StoreEditor();
-            if (err == null) { ApplyToPatch(); s.Save(); Flash(Loc.T("saved")); }
-            else Flash(err);
+            stFixtures = FixtureEntry.Defaults();
+            LoadEditor();
+            Flash(Loc.T("resetLightsDone"));
         }
-        if (GUILayout.Button(Loc.T("discard"), sButton)) { LoadEditor(); Flash(Loc.T("discarded")); }
-        if (GUILayout.Button(Loc.T("defaults"), sButton)) { s.fixtures = FixtureEntry.Defaults(); LoadEditor(); Flash(Loc.T("defaultsLoaded")); }
-        GUILayout.EndHorizontal();
+    }
+
+    // ---- Aktualizace ----
+    void DrawUpdates()
+    {
+        GUILayout.Label(Loc.F("currentVersion", Application.version), sLabel);
+        GUILayout.Space(8 * k);
+        switch (updater.state)
+        {
+            case Updater.State.Checking: GUILayout.Label(Loc.T("checking"), sHead); break;
+            case Updater.State.UpToDate: GUILayout.Label(Loc.T("upToDate"), sHead); break;
+            case Updater.State.Available:
+                GUILayout.Label(Loc.F("newVersion", updater.latestVersion), sHead);
+                GUILayout.Space(6 * k);
+                if (GUILayout.Button(Loc.T("install"), sBig)) updater.DownloadAndInstall();
+                if (GUILayout.Button(Loc.T("openWeb"), sButton)) updater.OpenReleasePage();
+                break;
+            case Updater.State.Downloading: GUILayout.Label(Loc.F("downloading", Mathf.RoundToInt(updater.progress * 100)), sHead); break;
+            case Updater.State.Installing: GUILayout.Label(Loc.T("installing"), sHead); break;
+            case Updater.State.Error:
+                GUILayout.Label(Loc.F("updateError", updater.error), sWarn);
+                if (GUILayout.Button(Loc.T("openWeb"), sButton)) updater.OpenReleasePage();
+                break;
+        }
+        GUILayout.Space(8 * k);
+        if (updater.state != Updater.State.Checking && updater.state != Updater.State.Downloading && updater.state != Updater.State.Installing)
+            if (GUILayout.Button(Loc.T("checkNow"), sButton)) updater.Check();
     }
 }
