@@ -18,16 +18,24 @@ public class VRRig : MonoBehaviour
     Transform head;
     InputAction move, turn;
     bool turnReady = true;
-    float floorRetryUntil;
 
     public static VRRig Create(Camera cam, Vector3 floorPos, float yaw)
     {
+        // XR Origin (core-utils) – potřebuje ho AR Foundation pro naskenované plochy místnosti;
+        // vše sledované (hlava, ovladače, plochy) leží pod ním, takže posun originu posune i realitu.
         var root = new GameObject("XR Origin");
+        root.SetActive(false);
         root.transform.SetPositionAndRotation(floorPos, Quaternion.Euler(0, yaw, 0));
+        var offset = new GameObject("Camera Offset").transform;
+        offset.SetParent(root.transform, false);
+        var xo = root.AddComponent<Unity.XR.CoreUtils.XROrigin>();
+        xo.Camera = cam;
+        xo.CameraFloorOffsetObject = offset.gameObject;
+        xo.RequestedTrackingOriginMode = Unity.XR.CoreUtils.XROrigin.TrackingOriginMode.Floor;
         var rig = root.AddComponent<VRRig>();
         Instance = rig;
 
-        cam.transform.SetParent(root.transform, false);
+        cam.transform.SetParent(offset, false);
         cam.transform.localPosition = new Vector3(0, 1.7f, 0);
         cam.transform.localRotation = Quaternion.identity;
         cam.nearClipPlane = 0.05f;
@@ -36,8 +44,12 @@ public class VRRig : MonoBehaviour
         tpd.rotationInput = Prop("<XRHMD>/centerEyeRotation", "Quaternion");
         rig.head = cam.transform;
 
-        rig.Controller(root.transform, "LeftHand");
-        rig.Controller(root.transform, "RightHand");
+        rig.LeftHand = rig.Controller(offset, "LeftHand");
+        rig.RightHand = rig.Controller(offset, "RightHand");
+        rig.RightAim = Pose(offset, "Aim R", "<XRController>{RightHand}/pointerPosition", "<XRController>{RightHand}/pointerRotation");
+        root.AddComponent<VREnvironment>();
+        root.AddComponent<VRMenu>();
+        root.SetActive(true);
 
         rig.move = new InputAction("Move", binding: "<XRController>{LeftHand}/{Primary2DAxis}");
         rig.turn = new InputAction("Turn", binding: "<XRController>{RightHand}/{Primary2DAxis}");
@@ -52,31 +64,52 @@ public class VRRig : MonoBehaviour
         return new InputActionProperty(a);
     }
 
-    // Jednoduchý model ovladače, který sleduje skutečnou pozici ruky.
-    void Controller(Transform root, string hand)
+    public Transform Head => head;
+    public Transform LeftHand { get; private set; }
+    public Transform RightHand { get; private set; }
+    public Transform RightAim { get; private set; }
+
+    static Transform Pose(Transform root, string name, string pos, string rot)
     {
-        var go = new GameObject("Controller " + hand);
+        var go = new GameObject(name);
         go.transform.SetParent(root, false);
         var tpd = go.AddComponent<TrackedPoseDriver>();
-        tpd.positionInput = Prop("<XRController>{" + hand + "}/devicePosition", "Vector3");
-        tpd.rotationInput = Prop("<XRController>{" + hand + "}/deviceRotation", "Quaternion");
-        VisUtil.Prim(PrimitiveType.Cube, go.transform, new Vector3(0, 0, 0.02f), new Vector3(0.04f, 0.03f, 0.12f), VisUtil.BodyMat);
+        tpd.positionInput = Prop(pos, "Vector3");
+        tpd.rotationInput = Prop(rot, "Quaternion");
+        return go.transform;
     }
 
-    void Start() { floorRetryUntil = Time.unscaledTime + 5f; }
+    // Ovladač sledující skutečnou ruku: oficiální model Quest 3 (Touch Plus) z Meta XR SDK,
+    // když je k dispozici (Resources/VRAssets), jinak jednoduchý kvádr.
+    Transform Controller(Transform root, string hand)
+    {
+        var t = Pose(root, "Controller " + hand, "<XRController>{" + hand + "}/devicePosition", "<XRController>{" + hand + "}/deviceRotation");
+        var assets = Resources.Load<VRAssets>("VRAssets");
+        var prefab = assets != null ? (hand == "LeftHand" ? assets.leftController : assets.rightController) : null;
+        if (prefab != null)
+        {
+            var m = Instantiate(prefab, t, false);
+            m.transform.localPosition = assets.modelOffset;
+            m.transform.localEulerAngles = assets.modelRotation;
+            var mat = VisUtil.LitMat(new Color(0.45f, 0.45f, 0.47f)); // v tmavém sále musí být vidět
+            foreach (var r in m.GetComponentsInChildren<Renderer>())
+            {
+                var mats = new Material[r.sharedMaterials.Length];
+                for (int i = 0; i < mats.Length; i++) mats[i] = mat;
+                r.sharedMaterials = mats;
+            }
+            foreach (var a in m.GetComponentsInChildren<Animator>()) a.enabled = false;
+        }
+        else VisUtil.Prim(PrimitiveType.Cube, t, new Vector3(0, 0, 0.02f), new Vector3(0.04f, 0.03f, 0.12f), VisUtil.BodyMat);
+        return t;
+    }
+
+    // Pohyb páčkami vypnutý např. při umisťování DJ stolku
+    [HideInInspector] public bool locomotionEnabled = true;
 
     void Update()
     {
-        // Tracking origin = podlaha (subsystém nemusí být hned připravený, zkoušíme pár sekund)
-        if (Time.unscaledTime < floorRetryUntil)
-        {
-            var subs = new List<XRInputSubsystem>();
-            SubsystemManager.GetSubsystems(subs);
-            foreach (var s in subs)
-                if (s.TrySetTrackingOriginMode(TrackingOriginModeFlags.Floor)) floorRetryUntil = 0f;
-        }
-
-        if (head == null) return;
+        if (head == null || move == null || !locomotionEnabled) return;
         Vector2 m = move.ReadValue<Vector2>();
         if (m.sqrMagnitude > 0.04f)
         {

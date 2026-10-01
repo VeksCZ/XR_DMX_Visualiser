@@ -51,7 +51,7 @@ public static class BuildQuest
         // Meta session + kamera (passthrough) pro pozdější mixed reality.
         FeatureHelpers.RefreshFeatures(BuildTargetGroup.Android);
         var oxr = OpenXRSettings.GetSettingsForBuildTargetGroup(BuildTargetGroup.Android);
-        string[] want = { "MetaQuestFeature", "OculusTouchControllerProfile", "MetaQuestTouchPlusControllerProfile", "ARSessionFeature", "ARCameraFeature" };
+        string[] want = { "MetaQuestFeature", "OculusTouchControllerProfile", "MetaQuestTouchPlusControllerProfile", "ARSessionFeature", "ARCameraFeature", "ARPlaneFeature" };
         foreach (var f in oxr.GetFeatures())
         {
             if (f == null) continue;
@@ -71,6 +71,7 @@ public static class BuildQuest
 
         RemoveSSAO();
         SetDebugSymbolsSymbolTable();
+        LinkVRAssets();
         AssetDatabase.SaveAssets();
         Debug.Log("Quest: projekt nastaven (Android = OpenXR + Meta Quest, Windows bez XR)");
     }
@@ -103,6 +104,21 @@ public static class BuildQuest
         string adb = FindAdb();
         Run(adb, "install -r -g \"" + Path.GetFullPath(ApkPath) + "\"");
         Run(adb, "shell monkey -p " + AppId + " 1");
+    }
+
+    // Modely ovladačů Quest 3 (Touch Plus) z balíčku Meta XR Core SDK – v repu je jen odkaz, ne samotné modely.
+    static void LinkVRAssets()
+    {
+        const string dir = "Assets/Visualizer/Resources";
+        const string path = dir + "/VRAssets.asset";
+        const string meshes = "Packages/com.meta.xr.sdk.core/Meshes/MetaQuestTouchPlus/";
+        Directory.CreateDirectory(dir);
+        var a = AssetDatabase.LoadAssetAtPath<VRAssets>(path);
+        if (a == null) { a = ScriptableObject.CreateInstance<VRAssets>(); AssetDatabase.CreateAsset(a, path); }
+        a.leftController = AssetDatabase.LoadAssetAtPath<GameObject>(meshes + "MetaQuestTouchPlus_Left.fbx");
+        a.rightController = AssetDatabase.LoadAssetAtPath<GameObject>(meshes + "MetaQuestTouchPlus_Right.fbx");
+        EditorUtility.SetDirty(a);
+        if (a.leftController == null) Debug.LogWarning("Quest: modely ovladačů z Meta XR SDK nenalezeny – použije se kvádr");
     }
 
     // SSAO ze šablony URP: v tmavém sále s aditivními paprsky není vidět, na Questu i slabším PC jen žere výkon.

@@ -86,6 +86,31 @@ public class DemoDriver : MonoBehaviour
             }
         }
 
+        // Kolegova rampa: pary pulzují, derby s fází GigBaru, helixy se kývají protiběžně
+        foreach (var p in sb.blackPars)
+        {
+            if (p == null) continue;
+            p.dimmer = 0.3f + 0.7f * pulse; p.color = hue2; p.strobeHz = 0f;
+        }
+        foreach (var ds in sb.derbyStrobes)
+        {
+            if (ds == null || ds.derby == null) continue;
+            ds.derby.red = derbyOn && bar % 2 == 0 ? 1 : 0;
+            ds.derby.green = derbyOn && bar % 2 == 1 ? 1 : 0;
+            ds.derby.blue = derbyOn ? 1 : 0;
+            ds.derby.white = 0; ds.derby.strobeHz = 0;
+            ds.strobeDimmer = Mathf.Repeat(beat, 16f) > 15f ? 1 : 0;
+            ds.strobeHz = 12f;
+        }
+        foreach (var hx in sb.helixes)
+        {
+            if (hx == null) continue;
+            hx.tilt1 = 0.5f + 0.3f * Mathf.Sin(beat * Mathf.PI / 2f);
+            hx.tilt2 = 0.5f - 0.3f * Mathf.Sin(beat * Mathf.PI / 2f);
+            hx.color1 = hue; hx.color2 = hue2;
+            hx.dimmer = phrase == 0 ? 0f : 1f; hx.strobeHz = 0f;
+        }
+
         // Uplighty - pomalu teplá bílá + barva
         foreach (var p in sb.uplights)
         {

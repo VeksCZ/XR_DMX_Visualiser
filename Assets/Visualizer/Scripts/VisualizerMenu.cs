@@ -20,6 +20,8 @@ public class VisualizerSettings
     public int windowHeight = 900;
     public string language = "";      // "cs" / "en", prázdné = podle systému
     public bool showStatusBar = true;
+    public bool vrPassthrough = false;     // Quest: místo virtuálního sálu skutečné okolí z kamer
+    public bool vrScannedRoom = false;     // Quest: místo virtuálního sálu naskenovaná místnost (room setup)
     public bool panelOpen = true;
     public bool panelMinimized = false;
 
@@ -224,6 +226,7 @@ public class VisualizerMenu : MonoBehaviour
     void ApplyVisibility()
     {
         if (scene == null) return;
+        scene.HideAllFixtures();   // co v patchi není, ve scéně nebude
         var count = new Dictionary<FixtureType, int>();
         foreach (var f in s.fixtures)
         {
@@ -231,12 +234,14 @@ public class VisualizerMenu : MonoBehaviour
             scene.SetVisible(f.type, n, !f.hidden);
             count[f.type] = n + 1;
         }
+        scene.FinishVisibility();
     }
 
     // Okamžitý náhled zatržítek v dialogu (Zrušit vrátí uložený stav)
     void PreviewVisibility()
     {
         if (scene == null || stFixtures == null) return;
+        scene.HideAllFixtures();
         var count = new Dictionary<FixtureType, int>();
         for (int i = 0; i < stFixtures.Count; i++)
         {
@@ -245,6 +250,7 @@ public class VisualizerMenu : MonoBehaviour
             scene.SetVisible(t, n, eOn[i]);
             count[t] = n + 1;
         }
+        scene.FinishVisibility();
     }
 
     void CloseSettingsWithoutSaving()
@@ -677,6 +683,46 @@ public class VisualizerMenu : MonoBehaviour
         GUI.DragWindow(new Rect(0, 0, 10000, 30 * k));
     }
 
+    // ---- API pro VR menu (VRMenu) ----
+    public VisualizerSettings Settings => s;
+    public bool HasArtNet => artnet != null && artnet.HasData;
+    public bool DemoForced => patch != null && patch.forceDemo;
+    public string Sender => artnet != null ? artnet.lastSender : "";
+    public float PacketsPerSec => pps;
+    public float Fps => fps;
+    public int HazePct => HazePercent();
+    public int CameraCount => cams != null ? cams.Length : 0;
+    public int CurrentCamera => s != null ? s.cameraPreset : 0;
+    public string CameraName(int i) => Loc.T(cams[i].key);
+    public void ToggleDemo() { if (patch != null) patch.forceDemo = !patch.forceDemo; }
+    public void GoToCamera(int i) { SetCamera(i); s.Save(); }
+    public void AddHaze(float d)
+    {
+        if (LiveData) patch.hazeDensity = Mathf.Clamp01(patch.hazeDensity + d);
+        else scene.haze = Mathf.Clamp(scene.haze + d * 3f, 0f, 3f);
+    }
+
+    // „Aktuální pozice ze SS = střed parketu“ pro všechny hlavy najednou. Vrací počet nakalibrovaných světel.
+    public int CalibrateAllToCenter()
+    {
+        if (patch == null || scene == null || !HasArtNet) return 0;
+        int n = 0, pocket = 0;
+        foreach (var f in s.fixtures)
+        {
+            if (f == null || !FixtureEntry.HasMovers(f.type)) continue;
+            int idx = f.type == FixtureType.PocketPro ? pocket++ : 0;
+            if (f.hidden) continue;
+            if (patch.SolveOffsets(f, idx, scene.danceFloorCenter, out float po, out float to))
+            {
+                f.panOffset = Mathf.Round(po);
+                f.tiltOffset = Mathf.Round(to);
+                n++;
+            }
+        }
+        if (n > 0) { ApplyToPatch(); s.Save(); }
+        return n;
+    }
+
     // ---- Ovládací panel ----
     void DrawPanel()
     {
@@ -795,6 +841,15 @@ public class VisualizerMenu : MonoBehaviour
         }
     }
 
+    void LoadPreset(List<FixtureEntry> list)
+    {
+        stFixtures = list;
+        selFixture = 0;
+        LoadEditor();
+        PreviewVisibility();
+        Flash(Loc.T("resetLightsDone"));
+    }
+
     // Světla: vlevo seznam se zatržítky (zobrazit ve scéně), vpravo nastavení vybraného světla
     void DrawLightsEditor()
     {
@@ -823,13 +878,12 @@ public class VisualizerMenu : MonoBehaviour
         }
         GUILayout.EndScrollView();
         GUILayout.Space(4 * k);
-        if (GUILayout.Button(Loc.T("resetLights"), sButton))
-        {
-            stFixtures = FixtureEntry.Defaults();
-            LoadEditor();
-            PreviewVisibility();
-            Flash(Loc.T("resetLightsDone"));
-        }
+        // Načíst výchozí sestavu (přepíše seznam v dialogu, uloží se až OK / Použít)
+        GUILayout.Label(Loc.T("presetLoad"), sDim);
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button(Loc.T("presetMine"), sButton)) LoadPreset(FixtureEntry.Defaults());
+        if (GUILayout.Button(Loc.T("presetColleague"), sButton)) LoadPreset(FixtureEntry.ColleagueDefaults());
+        GUILayout.EndHorizontal();
         GUILayout.EndVertical();
 
         GUILayout.Space(14 * k);

@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum FixtureType { GigBarMoveILS, BatteryPar, PixelTube, Hazer, PocketPro }
+// Pořadí neměnit – uloží se jako číslo do settings.json. Nové typy jen na konec.
+public enum FixtureType { GigBarMoveILS, BatteryPar, PixelTube, Hazer, PocketPro, BlackPar, DerbyStrobe, DoubleHelix }
 
 // Jedno světlo v patchi. Universe je 1-based jako v SoundSwitchi (1 = Art-Net universe 0).
 [Serializable]
@@ -35,6 +36,9 @@ public class FixtureEntry
             case FixtureType.PocketPro: return new[] { "13ch" };
             case FixtureType.BatteryPar: return new[] { "10ch (Mode 2)" };
             case FixtureType.PixelTube: return new[] { "12ch (Mode 1)", "40ch (Mode 2, 8 px)" };
+            case FixtureType.BlackPar: return new[] { "9ch" };
+            case FixtureType.DerbyStrobe: return new[] { "6ch" };
+            case FixtureType.DoubleHelix: return new[] { "18ch" };
             default: return new[] { "1ch" };
         }
     }
@@ -47,6 +51,9 @@ public class FixtureEntry
             case FixtureType.PocketPro: return 13;
             case FixtureType.BatteryPar: return 10;
             case FixtureType.PixelTube: return ch40 ? 40 : 12;
+            case FixtureType.BlackPar: return 9;
+            case FixtureType.DerbyStrobe: return 6;
+            case FixtureType.DoubleHelix: return 18;
             default: return 1;
         }
     }
@@ -59,9 +66,23 @@ public class FixtureEntry
             case FixtureType.PocketPro: return "ADJ Pocket Pro";
             case FixtureType.BatteryPar: return "Battery Par";
             case FixtureType.PixelTube: return "Pixel Tube 360";
+            case FixtureType.BlackPar: return "Light4Me Black Par 30x3W";
+            case FixtureType.DerbyStrobe: return "BeamZ DerbyStrobe";
+            case FixtureType.DoubleHelix: return "BeamZ MHL820 Double Helix";
             default: return "Hazer";
         }
     }
+
+    // Kolegova sestava: rampa nad stolem – derby nahoře na krajích, pary visí blíž ke středu,
+    // helix uprostřed. Adresy jsou zatím jen za sebou (doplnit podle jeho SoundSwitch projektu).
+    public static List<FixtureEntry> ColleagueDefaults() => new List<FixtureEntry>
+    {
+        new FixtureEntry(FixtureType.DerbyStrobe, "Derby L", 1),
+        new FixtureEntry(FixtureType.DerbyStrobe, "Derby R", 7),
+        new FixtureEntry(FixtureType.BlackPar, "Par L", 13),
+        new FixtureEntry(FixtureType.BlackPar, "Par R", 22),
+        new FixtureEntry(FixtureType.DoubleHelix, "Helix", 31),
+    };
 
     public static List<FixtureEntry> Defaults() => new List<FixtureEntry>
     {
@@ -118,7 +139,7 @@ public class DmxPatch : MonoBehaviour
         if (demo != null) demo.enabled = !live; // bez Art-Netu (nebo s vynuceným demem) běží demo
         if (!live) return;
 
-        int pars = 0, tubes = 0, pockets = 0;
+        int pars = 0, tubes = 0, pockets = 0, bpars = 0, derbys = 0, helixes = 0;
         bool gigbarDone = false, hazerDone = false;
         float hazeOut = 0f;
         foreach (var f in fixtures)
@@ -147,6 +168,18 @@ public class DmxPatch : MonoBehaviour
                 case FixtureType.PocketPro:
                     if (on && scene.pockets != null && pockets < scene.pockets.Length) ApplyPocketPro(d, a, scene.pockets[pockets], f);
                     pockets++;
+                    break;
+                case FixtureType.BlackPar:
+                    if (on && bpars < scene.blackPars.Length) ApplyBlackPar(d, a, scene.blackPars[bpars]);
+                    bpars++;
+                    break;
+                case FixtureType.DerbyStrobe:
+                    if (on && derbys < scene.derbyStrobes.Length) ApplyDerbyStrobe(d, a, scene.derbyStrobes[derbys]);
+                    derbys++;
+                    break;
+                case FixtureType.DoubleHelix:
+                    if (on && helixes < scene.helixes.Length) ApplyHelix(d, a, scene.helixes[helixes]);
+                    helixes++;
                     break;
             }
         }
@@ -571,5 +604,78 @@ public class DmxPatch : MonoBehaviour
             }
             px[i] = c;
         }
+    }
+
+    // ================= Kolegova sestava =================
+
+    // Light4Me Black Par 30x3W RGBA-UV, 9ch (profil ze SoundSwitch knihovny):
+    // 0 Intensity, 1 R, 2 G, 3 B, 4 A, 5 UV, 6 Strobe, 7 Function, 8 Function speed
+    // Function podle manuálu: 51-100 skoky barev, 101-150 prolínání, 151-200 pulz, 201-250 auto.
+    void ApplyBlackPar(byte[] d, int b, ParLight p)
+    {
+        if (p == null) return;
+        Color c = VisUtil.RGBWA(F(d, b + 1), F(d, b + 2), F(d, b + 3), 0f, F(d, b + 4)) + Uv(F(d, b + 5));
+        int fn = I(d, b + 7);
+        if (fn > 50 && fn <= 250)
+        {
+            float rate = Mathf.Lerp(0.2f, 4f, F(d, b + 8));
+            float t = Time.time * rate;
+            if (fn <= 100) c = Color.HSVToRGB(Mathf.Floor(t * 2f) % 7 / 7f, 1f, 1f);                         // skoky
+            else if (fn <= 150) c = Color.HSVToRGB(Mathf.Repeat(t * 0.3f, 1f), 1f, 1f);                       // prolínání
+            else if (fn <= 200) c = Color.HSVToRGB(Mathf.Floor(t) % 7 / 7f, 1f, 1f) * (0.5f + 0.5f * Mathf.Sin(t * 6.28f)); // pulz
+            else c = Color.HSVToRGB(Mathf.Repeat(t * 0.5f, 1f), 1f, 1f);
+        }
+        float m = Mathf.Max(c.r, Mathf.Max(c.g, c.b));
+        p.color = m > 0.001f ? c / m : Color.black;
+        p.dimmer = F(d, b) * Mathf.Clamp01(m);
+        p.strobeHz = StrobeHz(I(d, b + 6));
+    }
+
+    // BeamZ DerbyStrobe (153.685), 6ch. V knihovně SoundSwitche profil není, rozložení je ODHAD
+    // podle manuálu (ověřit s kolegovým profilem):
+    // 0 barva derby (makro), 1 strobo derby, 2 rotace derby, 3 jas strobo panelu, 4 rychlost strobo panelu, 5 auto/zvuk
+    static readonly Color[] DerbyMacro =
+    {
+        new Color(1,0,0,0), new Color(0,1,0,0), new Color(0,0,1,0), new Color(0,0,0,1),
+        new Color(1,1,0,0), new Color(1,0,1,0), new Color(1,0,0,1), new Color(0,1,1,0),
+        new Color(0,1,0,1), new Color(0,0,1,1), new Color(1,1,1,0), new Color(1,1,0,1),
+        new Color(1,0,1,1), new Color(0,1,1,1), new Color(1,1,1,1),
+    };
+
+    void ApplyDerbyStrobe(byte[] d, int b, DerbyStrobe ds)
+    {
+        if (ds == null || ds.derby == null) return;
+        var dr = ds.derby;
+        int cv = I(d, b);
+        Color k = cv < 10 ? Color.clear : DerbyMacro[Mathf.Min((cv - 10) * DerbyMacro.Length / 246, DerbyMacro.Length - 1)];
+        if (I(d, b + 5) > 10)   // auto program: střídání barev v rytmu
+            k = DerbyMacro[(int)(Time.time * 2f) % DerbyMacro.Length];
+        dr.red = k.r; dr.green = k.g; dr.blue = k.b; dr.white = k.a;
+        dr.strobeHz = StrobeHz(I(d, b + 1));
+        dr.rotationSpeed = Rotation(I(d, b + 2), 150f);
+        ds.strobeDimmer = F(d, b + 3);
+        ds.strobeHz = I(d, b + 4) < 10 ? 0f : Mathf.Lerp(1f, 20f, (I(d, b + 4) - 10) / 245f);
+    }
+
+    // BeamZ MHL820 Double Helix, 18ch (profil ze SoundSwitch knihovny):
+    // 0-1 tilt lišty 1 (16bit), 2-3 tilt lišty 2, 4-7 RGBW lišty 1, 8-11 RGBW lišty 2,
+    // 12 makro show, 13 rychlost show, 14 strobo, 15 jas, 16 režim dimmeru, 17 speciální funkce
+    void ApplyHelix(byte[] d, int b, Helix h)
+    {
+        if (h == null) return;
+        h.tilt1 = ((I(d, b) << 8) | I(d, b + 1)) / 65535f;
+        h.tilt2 = ((I(d, b + 2) << 8) | I(d, b + 3)) / 65535f;
+        h.color1 = VisUtil.RGBWA(F(d, b + 4), F(d, b + 5), F(d, b + 6), F(d, b + 7), 0f);
+        h.color2 = VisUtil.RGBWA(F(d, b + 8), F(d, b + 9), F(d, b + 10), F(d, b + 11), 0f);
+        if (I(d, b + 12) > 10)   // vestavěná show: lišty se kývají protiběžně, barvy dokola
+        {
+            float t = Time.time * Mathf.Lerp(0.2f, 2f, F(d, b + 13));
+            h.tilt1 = 0.5f + 0.35f * Mathf.Sin(t * 3.1f);
+            h.tilt2 = 0.5f - 0.35f * Mathf.Sin(t * 3.1f);
+            h.color1 = Color.HSVToRGB(Mathf.Repeat(t * 0.2f, 1f), 1f, 1f);
+            h.color2 = Color.HSVToRGB(Mathf.Repeat(t * 0.2f + 0.5f, 1f), 1f, 1f);
+        }
+        h.strobeHz = StrobeHz(I(d, b + 14));
+        h.dimmer = F(d, b + 15);
     }
 }

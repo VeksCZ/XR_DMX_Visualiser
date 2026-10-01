@@ -27,6 +27,11 @@ public class SceneBuilder : MonoBehaviour
     [HideInInspector] public PixelTube[] tubes = new PixelTube[4];
     [HideInInspector] public ParLight[] uplights = new ParLight[4];
     [HideInInspector] public MovingHead[] pockets = new MovingHead[2];
+    // Kolegova rampa nad stolem
+    [HideInInspector] public ParLight[] blackPars = new ParLight[2];
+    [HideInInspector] public DerbyStrobe[] derbyStrobes = new DerbyStrobe[2];
+    [HideInInspector] public Helix[] helixes = new Helix[2];
+    Transform truss;
     Transform gigbarTripod;
 
     float backZ;
@@ -44,8 +49,16 @@ public class SceneBuilder : MonoBehaviour
     {
         Shader.SetGlobalFloat("_Haze", haze);
         Shader.SetGlobalFloat("_FloorY", 0f);
-        Shader.SetGlobalFloat("_CeilingY", ceiling);
+        Shader.SetGlobalFloat("_CeilingY", ceilingOverride > 0f ? ceilingOverride : ceiling);
     }
+
+    // ---- VR prostředí ----
+    Transform shell;
+    [HideInInspector] public float ceilingOverride = -1f;  // strop naskenované místnosti / passthrough
+    public bool VirtualRoomVisible => shell != null && shell.gameObject.activeSelf;
+    public void SetVirtualRoom(bool visible) { if (shell != null) shell.gameObject.SetActive(visible); }
+    // Bod na podlaze pod předním okrajem DJ stolku – kotva pro „Umístit DJ stolek“
+    public Vector3 DJTableAnchor => new Vector3(0, 0, backZ + 2.35f);
 
     void BuildRoom()
     {
@@ -58,12 +71,15 @@ public class SceneBuilder : MonoBehaviour
         var room = new GameObject("Room").transform;
         backZ = -roomDepth * 0.5f;
         float w = roomWidth, d = roomDepth;
-        VisUtil.Prim(PrimitiveType.Cube, room, new Vector3(0, -0.01f, 0), new Vector3(w, 0.02f, d), VisUtil.FloorMat);
-        VisUtil.Prim(PrimitiveType.Cube, room, new Vector3(0, ceiling, 0), new Vector3(w, 0.02f, d), VisUtil.BodyMat);
-        VisUtil.Prim(PrimitiveType.Cube, room, new Vector3(0, ceiling * 0.5f, backZ), new Vector3(w, ceiling, 0.1f), VisUtil.WallMat);
-        VisUtil.Prim(PrimitiveType.Cube, room, new Vector3(0, ceiling * 0.5f, -backZ), new Vector3(w, ceiling, 0.1f), VisUtil.WallMat);
-        VisUtil.Prim(PrimitiveType.Cube, room, new Vector3(-w * 0.5f, ceiling * 0.5f, 0), new Vector3(0.1f, ceiling, d), VisUtil.WallMat);
-        VisUtil.Prim(PrimitiveType.Cube, room, new Vector3(w * 0.5f, ceiling * 0.5f, 0), new Vector3(0.1f, ceiling, d), VisUtil.WallMat);
+        // Plášť sálu (podlaha, strop, stěny) zvlášť – ve VR jde vypnout (passthrough / naskenovaná místnost)
+        shell = new GameObject("Shell").transform;
+        shell.SetParent(room, false);
+        VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(0, -0.01f, 0), new Vector3(w, 0.02f, d), VisUtil.FloorMat);
+        VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(0, ceiling, 0), new Vector3(w, 0.02f, d), VisUtil.BodyMat);
+        VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(0, ceiling * 0.5f, backZ), new Vector3(w, ceiling, 0.1f), VisUtil.WallMat);
+        VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(0, ceiling * 0.5f, -backZ), new Vector3(w, ceiling, 0.1f), VisUtil.WallMat);
+        VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(-w * 0.5f, ceiling * 0.5f, 0), new Vector3(0.1f, ceiling, d), VisUtil.WallMat);
+        VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(w * 0.5f, ceiling * 0.5f, 0), new Vector3(0.1f, ceiling, d), VisUtil.WallMat);
 
         // Nenápadný křížek ve středu parketu (cíl kalibrace hlav)
         var fc = danceFloorCenter + new Vector3(0, 0.002f, 0);
@@ -136,6 +152,96 @@ public class SceneBuilder : MonoBehaviour
             p.Build();
             uplights[i] = p;
         }
+
+        BuildColleagueTruss(rig);
+    }
+
+    // Kolegova rampa: dvě nohy u zadní hrany DJ stolku, na obou stranách kousek přesazené,
+    // nahoře příčka. Derby nahoře na krajích (svítí nahoru), pary visí blíž ke středu, helix uprostřed.
+    void BuildColleagueTruss(Transform rig)
+    {
+        const float h = 2.3f, legX = 1.1f, bar = 0.15f;
+        float tz = backZ + 2f - 0.35f - 0.05f;   // těsně za zadní hranou stolku
+        truss = new GameObject("Truss (kolega)").transform;
+        truss.SetParent(rig, false);
+        var m = VisUtil.LitMat(new Color(0.55f, 0.55f, 0.58f));   // hliníkový truss
+        foreach (float x in new[] { -legX, legX })
+        {
+            VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(x, h * 0.5f, tz), new Vector3(bar, h, bar), m);
+            VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(x, 0.005f, tz), new Vector3(0.5f, 0.01f, 0.5f), VisUtil.BodyMat);
+        }
+        VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(0, h - bar * 0.5f, tz), new Vector3(2 * legX + bar, bar, bar), m);
+
+        for (int i = 0; i < 2; i++)
+        {
+            float s = i == 0 ? -1f : 1f;
+            // derby nahoře na krajích, míří nahoru a lehce dopředu
+            var dgo = new GameObject(i == 0 ? "DerbyStrobe L" : "DerbyStrobe R");
+            dgo.transform.SetParent(truss, false);
+            dgo.transform.localPosition = new Vector3(s * 0.95f, h + 0.06f, tz);
+            dgo.transform.localEulerAngles = new Vector3(-75f, 0, 0);
+            var ds = dgo.AddComponent<DerbyStrobe>();
+            ds.Build();
+            if (i == 1) ds.derby.rotationSpeed = -ds.derby.rotationSpeed;
+            derbyStrobes[i] = ds;
+
+            // pary visí pod příčkou blíž ke středu, míří dolů před stolek
+            var pgo = new GameObject(i == 0 ? "Black Par L" : "Black Par R");
+            pgo.transform.SetParent(truss, false);
+            pgo.transform.localPosition = new Vector3(s * 0.55f, h - bar - 0.13f, tz + 0.02f);
+            pgo.transform.localEulerAngles = new Vector3(40f, 0, 0);
+            VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(s * 0.55f, h - bar - 0.04f, tz), new Vector3(0.22f, 0.02f, 0.04f), VisUtil.BodyMat); // třmen
+            var p = pgo.AddComponent<ParLight>();
+            p.housing = ParLight.Housing.Round;
+            p.size = 0.19f;
+            p.beamAngle = 25f;
+            p.fieldAngle = 40f;
+            p.beamLength = 7f;
+            p.lightIntensity = 30f;
+            p.Build();
+            blackPars[i] = p;
+
+            // helix(y) uprostřed nahoře na příčce
+            var hgo = new GameObject("Helix " + (i + 1));
+            hgo.transform.SetParent(truss, false);
+            hgo.transform.localPosition = new Vector3(i == 0 ? 0f : 0.35f, h, tz);
+            var hx = hgo.AddComponent<Helix>();
+            hx.Build();
+            helixes[i] = hx;
+        }
+    }
+
+    // Skrýt všechna světla – pak je VisualizerMenu podle patche zase zapne (co v patchi není, nesvítí ve scéně)
+    public void HideAllFixtures()
+    {
+        if (gigbar != null) gigbar.gameObject.SetActive(false);
+        if (gigbarTripod != null) gigbarTripod.gameObject.SetActive(false);
+        foreach (var x in pockets) if (x != null) x.gameObject.SetActive(false);
+        foreach (var x in uplights) if (x != null) x.gameObject.SetActive(false);
+        foreach (var x in tubes) if (x != null) x.gameObject.SetActive(false);
+        foreach (var x in blackPars) if (x != null) x.gameObject.SetActive(false);
+        foreach (var x in derbyStrobes) if (x != null) x.gameObject.SetActive(false);
+        foreach (var x in helixes) if (x != null) x.gameObject.SetActive(false);
+    }
+
+    // Rampa se ukáže, jen když na ní něco je; jeden helix stojí přesně uprostřed, dva vedle sebe
+    public void FinishVisibility()
+    {
+        if (truss == null) return;
+        bool any = false;
+        foreach (var x in blackPars) any |= x != null && x.gameObject.activeSelf;
+        foreach (var x in derbyStrobes) any |= x != null && x.gameObject.activeSelf;
+        int hc = 0;
+        foreach (var x in helixes) if (x != null && x.gameObject.activeSelf) hc++;
+        any |= hc > 0;
+        for (int i = 0; i < truss.childCount; i++)
+        {
+            var c = truss.GetChild(i);
+            if (c.GetComponent<ParLight>() == null && c.GetComponent<DerbyStrobe>() == null && c.GetComponent<Helix>() == null)
+                c.gameObject.SetActive(any);
+        }
+        if (helixes[0] != null) helixes[0].transform.localPosition = new Vector3(hc > 1 ? -0.2f : 0f, helixes[0].transform.localPosition.y, helixes[0].transform.localPosition.z);
+        if (helixes[1] != null) helixes[1].transform.localPosition = new Vector3(0.2f, helixes[1].transform.localPosition.y, helixes[1].transform.localPosition.z);
     }
 
     Transform Tripod(Transform parent, Vector3 pos, float h)
@@ -170,6 +276,9 @@ public class SceneBuilder : MonoBehaviour
             case FixtureType.PocketPro: if (index < pockets.Length && pockets[index] != null) go = pockets[index].gameObject; break;
             case FixtureType.BatteryPar: if (index < uplights.Length && uplights[index] != null) go = uplights[index].gameObject; break;
             case FixtureType.PixelTube: if (index < tubes.Length && tubes[index] != null) go = tubes[index].gameObject; break;
+            case FixtureType.BlackPar: if (index < blackPars.Length && blackPars[index] != null) go = blackPars[index].gameObject; break;
+            case FixtureType.DerbyStrobe: if (index < derbyStrobes.Length && derbyStrobes[index] != null) go = derbyStrobes[index].gameObject; break;
+            case FixtureType.DoubleHelix: if (index < helixes.Length && helixes[index] != null) go = helixes[index].gameObject; break;
         }
         if (go != null) go.SetActive(visible);
     }

@@ -74,7 +74,8 @@ Shader "Visualizer/Beam"
                 float floorFade = saturate((i.wpos.y - _FloorY) / 0.05);
                 float ceilFade = saturate((_CeilingY - i.wpos.y) / 0.05);
                 float a = edge * along * floorFade * ceilFade * _Intensity * _Haze;
-                return float4(_Color.rgb * a, 1);
+                // alfa 0: aditivní světlo nezakrývá passthrough (kompozitor bere alfu jako krytí)
+                return float4(_Color.rgb * a, 0);
             }
             ENDCG
         }
