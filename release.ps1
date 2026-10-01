@@ -20,6 +20,7 @@ $stage = Join-Path $build 'release\DMXVisualiser'
 Remove-Item (Join-Path $build 'release') -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory $stage -Force | Out-Null
 Get-ChildItem (Join-Path $build 'Windows') | Where-Object { $_.Name -notlike '*DoNotShip*' -and $_.Name -ne 'settings.json' } | Copy-Item -Destination $stage -Recurse -Force
+Copy-Item (Join-Path $root 'Tools\Quest\*') $stage -Force   # skript pro instalaci do Questu
 
 $zip = Join-Path $build "DMXVisualiser-$tag-win64.zip"
 Remove-Item $zip -ErrorAction SilentlyContinue

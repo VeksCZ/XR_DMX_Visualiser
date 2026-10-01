@@ -112,6 +112,8 @@ public class VisualizerMenu : MonoBehaviour
     DmxPatch patch;
     ArtNetReceiver artnet;
     Updater updater;
+    QuestTools quest;          // jen Windows: instalace a nastavení Quest aplikace přes ADB
+    bool questDetected;
     VisualizerSettings s;
 
     bool uiVisible = true;
@@ -172,6 +174,10 @@ public class VisualizerMenu : MonoBehaviour
         artnet = GetComponent<ArtNetReceiver>();
         updater = GetComponent<Updater>();
         if (updater == null) updater = gameObject.AddComponent<Updater>();
+#if UNITY_STANDALONE_WIN
+        quest = GetComponent<QuestTools>();
+        if (quest == null) quest = gameObject.AddComponent<QuestTools>();
+#endif
         s = VisualizerSettings.Load();
         Loc.En = s.language == "en";
 
@@ -796,6 +802,7 @@ public class VisualizerMenu : MonoBehaviour
         if (GUILayout.Toggle(settingsTab == 0, Loc.T("tabGeneral"), sTab)) settingsTab = 0;
         if (GUILayout.Toggle(settingsTab == 1, Loc.T("tabLights"), sTab)) settingsTab = 1;
         if (GUILayout.Toggle(settingsTab == 2, Loc.T("tabArtNet"), sTab)) settingsTab = 2;
+        if (quest != null && GUILayout.Toggle(settingsTab == 3, Loc.T("tabQuest"), sTab)) settingsTab = 3;
         GUILayout.EndHorizontal();
         GUILayout.Space(10 * k);
 
@@ -819,6 +826,10 @@ public class VisualizerMenu : MonoBehaviour
         else if (settingsTab == 1)
         {
             DrawLightsEditor();
+        }
+        else if (settingsTab == 3 && quest != null)
+        {
+            DrawQuest();
         }
         else
         {
@@ -1021,6 +1032,42 @@ public class VisualizerMenu : MonoBehaviour
 
     static bool TryDeg(string s, out float v) =>
         float.TryParse((s ?? "").Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v);
+
+    // ---- Quest (ADB) ----
+    void DrawQuest()
+    {
+        if (!questDetected) { questDetected = true; quest.Detect(); }
+        bool busy = quest.busy;
+        bool ready = quest.adbPath != null && quest.device != null && quest.deviceState == "device";
+
+        GUILayout.Label(Loc.T("qTitle"), sHead);
+        GUILayout.Label(Loc.T("qHint"), sDim);
+        GUILayout.Space(8 * k);
+
+        GUILayout.Label("ADB: " + (quest.adbPath ?? Loc.T("qAdbMissing")), sLabel);
+        GUILayout.Label(Loc.T("qDevice") + ": " + (quest.device == null ? "-" : quest.deviceModel + " (" + quest.deviceState + ")"), sLabel);
+        GUILayout.Label(Loc.T("qAppVersion") + ": " + (quest.installedVersion ?? "-") + "    " + Loc.F("qPcVersion", Application.version), sLabel);
+        GUILayout.Space(8 * k);
+
+        string st = quest.status + (quest.progress >= 0f ? "  " + Mathf.RoundToInt(quest.progress * 100) + " %" : "");
+        GUILayout.Label(st, quest.statusError ? sWarn : sHead);
+        GUILayout.Space(10 * k);
+
+        GUI.enabled = !busy;
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button(Loc.T("qDetect"), sButton, GUILayout.Width(200 * k))) quest.Detect();
+        if (quest.adbPath == null && GUILayout.Button(Loc.T("qGetAdb"), sButton, GUILayout.Width(260 * k))) quest.DownloadAdb();
+        GUILayout.EndHorizontal();
+        GUILayout.Space(6 * k);
+        GUI.enabled = !busy && ready;
+        string inst = quest.installedVersion == null ? Loc.T("qInstall")
+            : (quest.installedVersion == Application.version ? Loc.T("qReinstall") : Loc.F("qUpdate", Application.version));
+        if (GUILayout.Button(inst, sBig)) quest.InstallApp();
+        GUI.enabled = !busy && ready && quest.installedVersion != null;
+        if (GUILayout.Button(Loc.T("qPush"), sBig)) quest.PushSettings(s);
+        GUI.enabled = true;
+        GUILayout.Label(Loc.T("qPushHint"), sDim);
+    }
 
     // ---- Aktualizace ----
     void DrawUpdates()
