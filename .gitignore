@@ -39,3 +39,7 @@ Thumbs.db
 /Assets/_Recovery/
 /Assets/_Recovery.meta
 /.utmp/
+/Assets/XR/Temp/
+/Assets/XR/Temp.meta
+/Assets/Resources/PerformanceTestRun*
+/Assets/StreamingAssets/RuntimeActionBindings.json*
