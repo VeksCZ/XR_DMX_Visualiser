@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 [Serializable]
 public class VisualizerSettings
 {
-    public int version = 4;
+    public int version = 5;
     public List<FixtureEntry> fixtures;
     public float hazeBuildRate = 0.08f;
     public float hazeDecay = 0.01f;
@@ -39,7 +39,14 @@ public class VisualizerSettings
             s.language = Application.systemLanguage == SystemLanguage.Czech || Application.systemLanguage == SystemLanguage.Slovak ? "cs" : "en";
         if (s.windowWidth < 640 || s.windowHeight < 360) { s.windowWidth = 1600; s.windowHeight = 900; }
         if (s.version < 4) s.panelOpen = true;
-        s.version = 4;
+        if (s.version < 5 && !s.fixtures.Exists(f => f.type == FixtureType.PocketPro))
+        {
+            // v0.5.1: přibyly ADJ Pocket Pro – doplnit do uloženého patche za GigBar
+            int at = s.fixtures.FindIndex(f => f.type == FixtureType.GigBarMoveILS) + 1;
+            s.fixtures.Insert(at, new FixtureEntry(FixtureType.PocketPro, "Pocket Pro R", 46));
+            s.fixtures.Insert(at, new FixtureEntry(FixtureType.PocketPro, "Pocket Pro L", 33));
+        }
+        s.version = 5;
         return s;
     }
 
@@ -80,6 +87,9 @@ public class VisualizerMenu : MonoBehaviour
     readonly List<string> eUni = new List<string>();
     readonly List<string> eAddr = new List<string>();
     readonly List<bool> e40 = new List<bool>();
+    readonly List<bool> eOn = new List<bool>();
+    int selFixture;
+    bool modeSelectOpen;
     Vector2 lightsScroll;
     string settingsError;
 
@@ -91,7 +101,7 @@ public class VisualizerMenu : MonoBehaviour
 
     float k = 1f;
     bool stylesReady;
-    GUIStyle sBar, sBarItem, sDrop, sDropItem, sWin, sWinTitle, sClose, sMin, sMini, sLabel, sHead, sDim, sWarn, sButton, sBig, sTab, sField, sToggle, sStatus;
+    GUIStyle sBar, sBarItem, sDrop, sDropItem, sWin, sWinTitle, sClose, sMin, sMini, sLabel, sHead, sDim, sWarn, sButton, sBig, sTab, sField, sToggle, sStatus, sListItem, sSelect;
     string[] winTitles = new string[5];
     Texture2D tBar, tDrop, tWin, tHover, tOn, tStatus, tTabOn, tCloseHover;
 
@@ -165,6 +175,7 @@ public class VisualizerMenu : MonoBehaviour
     void EscapePressed()
     {
         if (openMenu >= 0) { openMenu = -1; return; }
+        if (winOpen[WinSettings]) ApplyVisibility();     // zavření bez uložení vrátí zatržítka
         bool closed = false;
         for (int i = 1; i < winOpen.Length; i++) if (winOpen[i]) { winOpen[i] = false; closed = true; }
         if (!closed && IsFullscreen) ToggleFullscreen();
@@ -179,13 +190,47 @@ public class VisualizerMenu : MonoBehaviour
         patch.fixtures = CloneList(s.fixtures);
         patch.hazeBuildRate = s.hazeBuildRate;
         patch.hazeDecay = s.hazeDecay;
+        ApplyVisibility();
+    }
+
+    // Zatržítka ze seznamu světel → zapnout/vypnout objekty ve scéně
+    void ApplyVisibility()
+    {
+        if (scene == null) return;
+        var count = new Dictionary<FixtureType, int>();
+        foreach (var f in s.fixtures)
+        {
+            count.TryGetValue(f.type, out int n);
+            scene.SetVisible(f.type, n, !f.hidden);
+            count[f.type] = n + 1;
+        }
+    }
+
+    // Okamžitý náhled zatržítek v dialogu (Zrušit vrátí uložený stav)
+    void PreviewVisibility()
+    {
+        if (scene == null || stFixtures == null) return;
+        var count = new Dictionary<FixtureType, int>();
+        for (int i = 0; i < stFixtures.Count; i++)
+        {
+            var t = stFixtures[i].type;
+            count.TryGetValue(t, out int n);
+            scene.SetVisible(t, n, eOn[i]);
+            count[t] = n + 1;
+        }
+    }
+
+    void CloseSettingsWithoutSaving()
+    {
+        winOpen[WinSettings] = false;
+        ApplyVisibility();
     }
 
     static List<FixtureEntry> CloneList(List<FixtureEntry> src)
     {
         var l = new List<FixtureEntry>();
         foreach (var f in src)
-            l.Add(new FixtureEntry { type = f.type, name = f.name, universe = f.universe, address = f.address, mode40ch = f.mode40ch });
+            l.Add(new FixtureEntry { type = f.type, name = f.name, universe = f.universe, address = f.address, mode40ch = f.mode40ch, hidden = f.hidden });
         return l;
     }
 
@@ -201,14 +246,17 @@ public class VisualizerMenu : MonoBehaviour
 
     void LoadEditor()
     {
-        eName.Clear(); eUni.Clear(); eAddr.Clear(); e40.Clear();
+        eName.Clear(); eUni.Clear(); eAddr.Clear(); e40.Clear(); eOn.Clear();
         foreach (var f in stFixtures)
         {
             eName.Add(f.name);
             eUni.Add(f.universe.ToString());
             eAddr.Add(f.address.ToString());
             e40.Add(f.mode40ch);
+            eOn.Add(!f.hidden);
         }
+        selFixture = Mathf.Clamp(selFixture, 0, Mathf.Max(0, stFixtures.Count - 1));
+        modeSelectOpen = false;
     }
 
     // Zkontroluje a uloží vše z dialogu. Vrací true, když se povedlo.
@@ -219,9 +267,9 @@ public class VisualizerMenu : MonoBehaviour
             var f = stFixtures[i];
             int ch = FixtureEntry.Channels(f.type, e40[i]);
             string nm = string.IsNullOrWhiteSpace(eName[i]) ? FixtureEntry.TypeLabel(f.type) : eName[i].Trim();
-            if (!int.TryParse(eUni[i], out int u) || u < 1 || u > 16) { settingsError = Loc.F("errUniverse", nm); settingsTab = 1; return false; }
-            if (!int.TryParse(eAddr[i], out int a) || a < 1 || a + ch - 1 > 512) { settingsError = Loc.F("errAddress", nm, 513 - ch); settingsTab = 1; return false; }
-            f.name = nm; f.universe = u; f.address = a; f.mode40ch = e40[i];
+            if (!int.TryParse(eUni[i], out int u) || u < 1 || u > 16) { settingsError = Loc.F("errUniverse", nm); settingsTab = 1; selFixture = i; return false; }
+            if (!int.TryParse(eAddr[i], out int a) || a < 1 || a + ch - 1 > 512) { settingsError = Loc.F("errAddress", nm, 513 - ch); settingsTab = 1; selFixture = i; return false; }
+            f.name = nm; f.universe = u; f.address = a; f.mode40ch = e40[i]; f.hidden = !eOn[i];
         }
         s.fixtures = CloneList(stFixtures);
         s.showStatusBar = stStatus;
@@ -298,7 +346,7 @@ public class VisualizerMenu : MonoBehaviour
         winOpen[w] = true;
         if (winRect[w].width < 1)
         {
-            float width = w == WinSettings ? 500 : w == WinPanel ? 340 : 440;
+            float width = w == WinSettings ? 720 : w == WinPanel ? 340 : 440;
             float x = w == WinPanel ? 16 * k : 380 * k;
             winRect[w] = new Rect(x, 40 * k, width * k, 10);
         }
@@ -428,6 +476,11 @@ public class VisualizerMenu : MonoBehaviour
         sToggle = new GUIStyle(GUI.skin.toggle) { fontSize = fs };
         sToggle.normal.textColor = sToggle.onNormal.textColor = text;
         sToggle.hover.textColor = sToggle.onHover.textColor = Color.white;
+
+        sListItem = new GUIStyle(sDropItem) { fixedHeight = 24 * k };
+        sListItem.onNormal.background = sListItem.onHover.background = sListItem.onActive.background = tTabOn;
+        sListItem.onNormal.textColor = sListItem.onHover.textColor = Color.white;
+        sSelect = new GUIStyle(GUI.skin.button) { fontSize = fs, alignment = TextAnchor.MiddleLeft, fixedHeight = 24 * k, padding = new RectOffset((int)(8 * k), (int)(8 * k), 0, 0) };
 
         sStatus = new GUIStyle { fontSize = Mathf.RoundToInt(12 * k), alignment = TextAnchor.MiddleLeft, padding = new RectOffset((int)(10 * k), (int)(10 * k), 0, 0), richText = true };
         sStatus.normal.background = tStatus;
@@ -568,6 +621,7 @@ public class VisualizerMenu : MonoBehaviour
         {
             winOpen[w] = false;
             if (w == WinPanel) { s.panelOpen = false; s.Save(); }
+            if (w == WinSettings) ApplyVisibility();
         }
         if (w == WinPanel && GUI.Button(new Rect(winRect[w].width - 58 * k, 4 * k, 26 * k, 24 * k), "–", sMin))
         {
@@ -670,49 +724,110 @@ public class VisualizerMenu : MonoBehaviour
         GUILayout.FlexibleSpace();
         if (GUILayout.Button(Loc.T("ok"), sButton, GUILayout.Width(90 * k))) { if (ApplySettings()) winOpen[WinSettings] = false; }
         if (GUILayout.Button(Loc.T("apply"), sButton, GUILayout.Width(90 * k))) ApplySettings();
-        if (GUILayout.Button(Loc.T("cancel"), sButton, GUILayout.Width(90 * k))) winOpen[WinSettings] = false;
+        if (GUILayout.Button(Loc.T("cancel"), sButton, GUILayout.Width(90 * k))) CloseSettingsWithoutSaving();
         GUILayout.EndHorizontal();
     }
 
+    // Světla: vlevo seznam se zatržítky (zobrazit ve scéně), vpravo nastavení vybraného světla
     void DrawLightsEditor()
     {
         GUILayout.Label(Loc.T("patchHint"), sDim);
-        GUILayout.Space(4 * k);
-        lightsScroll = GUILayout.BeginScrollView(lightsScroll, GUILayout.Height(Mathf.Min(Screen.height * 0.5f, 420 * k)));
+        GUILayout.Space(6 * k);
+        GUILayout.BeginHorizontal();
+
+        // ---- seznam ----
+        GUILayout.BeginVertical(GUILayout.Width(260 * k));
+        lightsScroll = GUILayout.BeginScrollView(lightsScroll, GUI.skin.box, GUILayout.Height(Mathf.Min(Screen.height * 0.5f, 360 * k)));
         for (int i = 0; i < stFixtures.Count; i++)
         {
-            var f = stFixtures[i];
-            GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.BeginHorizontal();
-            eName[i] = GUILayout.TextField(eName[i], sField, GUILayout.Width(190 * k));
-            GUILayout.Label(FixtureEntry.TypeLabel(f.type), sDim);
+            bool was = eOn[i];
+            eOn[i] = GUILayout.Toggle(eOn[i], GUIContent.none, sToggle, GUILayout.Width(20 * k));
+            if (eOn[i] != was) PreviewVisibility();
+            string label = eName[i] + (Overlap(i) != null ? "   ⚠" : "");
+            bool sel = selFixture == i;
+            if (GUILayout.Toggle(sel, label, sListItem) && !sel)
+            {
+                selFixture = i;
+                modeSelectOpen = false;
+                GUIUtility.keyboardControl = 0;
+            }
             GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("U", sLabel, GUILayout.Width(16 * k));
-            eUni[i] = GUILayout.TextField(eUni[i], sField, GUILayout.Width(40 * k));
-            GUILayout.Label(Loc.T("address"), sLabel, GUILayout.Width(62 * k));
-            eAddr[i] = GUILayout.TextField(eAddr[i], sField, GUILayout.Width(60 * k));
-            int ch = FixtureEntry.Channels(f.type, e40[i]);
-            string range = int.TryParse(eAddr[i], out int a) ? a + "–" + (a + ch - 1) : "?";
-            GUILayout.Label(ch + "ch  (" + range + ")", sDim);
-            GUILayout.EndHorizontal();
-
-            if (f.type == FixtureType.PixelTube)
-                e40[i] = GUILayout.Toggle(e40[i], " " + Loc.T("mode40"), sToggle);
-
-            string ov = Overlap(i);
-            if (ov != null) GUILayout.Label(Loc.F("overlap", ov), sWarn);
-            GUILayout.EndVertical();
         }
         GUILayout.EndScrollView();
-        GUILayout.Space(6 * k);
+        GUILayout.Space(4 * k);
         if (GUILayout.Button(Loc.T("resetLights"), sButton))
         {
             stFixtures = FixtureEntry.Defaults();
             LoadEditor();
+            PreviewVisibility();
             Flash(Loc.T("resetLightsDone"));
         }
+        GUILayout.EndVertical();
+
+        GUILayout.Space(14 * k);
+
+        // ---- detail ----
+        GUILayout.BeginVertical();
+        if (stFixtures.Count > 0)
+        {
+            int i = Mathf.Clamp(selFixture, 0, stFixtures.Count - 1);
+            var f = stFixtures[i];
+            GUILayout.Label(FixtureEntry.TypeLabel(f.type), sHead);
+            bool wasOn = eOn[i];
+            eOn[i] = GUILayout.Toggle(eOn[i], " " + Loc.T("showInScene"), sToggle);
+            if (eOn[i] != wasOn) PreviewVisibility();
+            GUILayout.Space(8 * k);
+
+            float lw = 120 * k;
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(Loc.T("name"), sLabel, GUILayout.Width(lw));
+            eName[i] = GUILayout.TextField(eName[i], sField);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(Loc.T("universe"), sLabel, GUILayout.Width(lw));
+            eUni[i] = GUILayout.TextField(eUni[i], sField, GUILayout.Width(60 * k));
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(Loc.T("address"), sLabel, GUILayout.Width(lw));
+            eAddr[i] = GUILayout.TextField(eAddr[i], sField, GUILayout.Width(80 * k));
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            // select režimu kanálů
+            var modes = FixtureEntry.Modes(f.type);
+            int mi = Mathf.Clamp(e40[i] ? 1 : 0, 0, modes.Length - 1);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(Loc.T("channelMode"), sLabel, GUILayout.Width(lw));
+            if (GUILayout.Button(modes[mi] + "   ▾", sSelect)) modeSelectOpen = !modeSelectOpen;
+            GUILayout.EndHorizontal();
+            if (modeSelectOpen)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Space(lw + 4 * k);
+                GUILayout.BeginVertical(GUI.skin.box);
+                for (int j = 0; j < modes.Length; j++)
+                    if (GUILayout.Button((j == mi ? "✓  " : "     ") + modes[j], sListItem))
+                    {
+                        e40[i] = j == 1;
+                        modeSelectOpen = false;
+                    }
+                GUILayout.EndVertical();
+                GUILayout.EndHorizontal();
+            }
+
+            GUILayout.Space(8 * k);
+            int ch = FixtureEntry.Channels(f.type, e40[i]);
+            if (int.TryParse(eAddr[i], out int a))
+                GUILayout.Label(Loc.F("channelsInfo", ch, a, a + ch - 1), sDim);
+            string ov = Overlap(i);
+            if (ov != null) GUILayout.Label(Loc.F("overlap", ov), sWarn);
+        }
+        GUILayout.EndVertical();
+        GUILayout.EndHorizontal();
     }
 
     // ---- Aktualizace ----

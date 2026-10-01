@@ -162,51 +162,61 @@ MonoBehaviour:
     universe: 1
     address: 200
     mode40ch: 0
+    hidden: 0
   - type: 1
     name: Uplight 1
     universe: 1
     address: 110
     mode40ch: 0
+    hidden: 0
   - type: 1
     name: Uplight 2
     universe: 1
     address: 120
     mode40ch: 0
+    hidden: 0
   - type: 1
     name: Uplight 3
     universe: 1
     address: 130
     mode40ch: 0
+    hidden: 0
   - type: 1
     name: Uplight 4
     universe: 1
     address: 140
     mode40ch: 0
+    hidden: 0
   - type: 2
     name: Tuba 1
     universe: 1
     address: 300
     mode40ch: 0
+    hidden: 0
   - type: 2
     name: Tuba 2
     universe: 1
     address: 350
     mode40ch: 0
+    hidden: 0
   - type: 2
     name: Tuba 3
     universe: 1
     address: 400
     mode40ch: 0
+    hidden: 0
   - type: 2
     name: Tuba 4
     universe: 1
     address: 450
     mode40ch: 0
+    hidden: 0
   - type: 3
     name: Hurricane Haze 1DX
     universe: 1
     address: 100
     mode40ch: 0
+    hidden: 0
   hazeBuildRate: 0.08
   hazeDecay: 0.01
   hazeDensity: 0.3
@@ -273,6 +283,9 @@ MonoBehaviour:
   uplights:
   - {fileID: 0}
   - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  pockets:
   - {fileID: 0}
   - {fileID: 0}
 --- !u!4 &176753530

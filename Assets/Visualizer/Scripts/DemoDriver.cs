@@ -35,6 +35,19 @@ public class DemoDriver : MonoBehaviour
         g.parL.dimmer = g.parR.dimmer = 0.4f + 0.6f * pulse;
         g.parL.color = g.parR.color = hue;
 
+        // Pocket Pro na stolku – kříží se přes parket, opačná fáze než GigBar
+        if (sb.pockets != null && sb.pockets.Length >= 2 && sb.pockets[0] != null)
+        {
+            float ps = Mathf.Sin(beat * Mathf.PI / 4f + Mathf.PI);
+            sb.pockets[0].pan = 0.5f + 0.08f * ps + 0.04f;
+            sb.pockets[1].pan = 0.5f - 0.08f * ps - 0.04f;
+            sb.pockets[0].tilt = sb.pockets[1].tilt = 0.62f + 0.05f * c;
+            sb.pockets[0].dimmer = sb.pockets[1].dimmer = phrase == 0 ? 0f : 1f;
+            sb.pockets[0].color = sb.pockets[1].color = phrase == 2 ? hue : Color.white;
+            sb.pockets[0].gobo = sb.pockets[1].gobo = (bar + 3) % 8;
+            sb.pockets[0].strobeHz = sb.pockets[1].strobeHz = 0f;
+        }
+
         // Derby
         bool derbyOn = phrase == 1 || phrase == 2;
         g.derbyL.red = g.derbyR.red = derbyOn && bar % 2 == 0 ? 1 : 0;

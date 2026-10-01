@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum FixtureType { GigBarMoveILS, BatteryPar, PixelTube, Hazer }
+public enum FixtureType { GigBarMoveILS, BatteryPar, PixelTube, Hazer, PocketPro }
 
 // Jedno světlo v patchi. Universe je 1-based jako v SoundSwitchi (1 = Art-Net universe 0).
 [Serializable]
@@ -12,16 +12,31 @@ public class FixtureEntry
     public string name;
     public int universe = 1;
     public int address = 1;
-    public bool mode40ch;   // jen pro tuby
+    public bool mode40ch;   // jen pro tuby (režim kanálů index 1)
+    public bool hidden;     // vypnuté ve scéně (zatržítko v Nastavení → Světla)
 
     public FixtureEntry() { }
     public FixtureEntry(FixtureType t, string n, int addr) { type = t; name = n; address = addr; }
+
+    // Dostupné režimy kanálů pro select v nastavení
+    public static string[] Modes(FixtureType t)
+    {
+        switch (t)
+        {
+            case FixtureType.GigBarMoveILS: return new[] { "52ch" };
+            case FixtureType.PocketPro: return new[] { "13ch" };
+            case FixtureType.BatteryPar: return new[] { "10ch (Mode 2)" };
+            case FixtureType.PixelTube: return new[] { "12ch (Mode 1)", "40ch (Mode 2, 8 px)" };
+            default: return new[] { "1ch" };
+        }
+    }
 
     public static int Channels(FixtureType t, bool ch40 = false)
     {
         switch (t)
         {
             case FixtureType.GigBarMoveILS: return 52;
+            case FixtureType.PocketPro: return 13;
             case FixtureType.BatteryPar: return 10;
             case FixtureType.PixelTube: return ch40 ? 40 : 12;
             default: return 1;
@@ -33,6 +48,7 @@ public class FixtureEntry
         switch (t)
         {
             case FixtureType.GigBarMoveILS: return "GigBar Move ILS (EU)";
+            case FixtureType.PocketPro: return "ADJ Pocket Pro";
             case FixtureType.BatteryPar: return "Battery Par";
             case FixtureType.PixelTube: return "Pixel Tube 360";
             default: return "Hazer";
@@ -42,6 +58,8 @@ public class FixtureEntry
     public static List<FixtureEntry> Defaults() => new List<FixtureEntry>
     {
         new FixtureEntry(FixtureType.GigBarMoveILS, "GigBar", 200),
+        new FixtureEntry(FixtureType.PocketPro, "Pocket Pro L", 33),
+        new FixtureEntry(FixtureType.PocketPro, "Pocket Pro R", 46),
         new FixtureEntry(FixtureType.BatteryPar, "Uplight 1", 110),
         new FixtureEntry(FixtureType.BatteryPar, "Uplight 2", 120),
         new FixtureEntry(FixtureType.BatteryPar, "Uplight 3", 130),
@@ -91,7 +109,7 @@ public class DmxPatch : MonoBehaviour
         if (demo != null) demo.enabled = !live; // bez Art-Netu (nebo s vynuceným demem) běží demo
         if (!live) return;
 
-        int pars = 0, tubes = 0;
+        int pars = 0, tubes = 0, pockets = 0;
         bool gigbarDone = false, hazerDone = false;
         float hazeOut = 0f;
         foreach (var f in fixtures)
@@ -100,21 +118,26 @@ public class DmxPatch : MonoBehaviour
             var d = Uni(f.universe - 1);
             if (d == null) continue;
             int a = f.address - 1;
+            bool on = !f.hidden;    // vypnuté světlo se počítá do pořadí, ale neovládá se
             switch (f.type)
             {
                 case FixtureType.GigBarMoveILS:
-                    if (!gigbarDone) { ApplyGigbar(d, a); gigbarDone = true; }
+                    if (!gigbarDone) { if (on) ApplyGigbar(d, a); gigbarDone = true; }
                     break;
                 case FixtureType.BatteryPar:
-                    if (pars < scene.uplights.Length) ApplyBatteryPar(d, a, scene.uplights[pars]);
+                    if (on && pars < scene.uplights.Length) ApplyBatteryPar(d, a, scene.uplights[pars]);
                     pars++;
                     break;
                 case FixtureType.PixelTube:
-                    if (tubes < scene.tubes.Length) ApplyTube(d, a, scene.tubes[tubes], f.mode40ch);
+                    if (on && tubes < scene.tubes.Length) ApplyTube(d, a, scene.tubes[tubes], f.mode40ch);
                     tubes++;
                     break;
                 case FixtureType.Hazer:
-                    if (!hazerDone) { hazeOut = F(d, a); hazerDone = true; }
+                    if (!hazerDone) { if (on) hazeOut = F(d, a); hazerDone = true; }
+                    break;
+                case FixtureType.PocketPro:
+                    if (on && scene.pockets != null && pockets < scene.pockets.Length) ApplyPocketPro(d, a, scene.pockets[pockets]);
+                    pockets++;
                     break;
             }
         }
@@ -263,6 +286,59 @@ public class DmxPatch : MonoBehaviour
         p.color = m > 0.001f ? c / m : Color.black;
         p.dimmer = F(d, b) * Mathf.Clamp01(m);
         p.strobeHz = StrobeHz(I(d, b + 7));
+    }
+
+    // ---------------- ADJ Pocket Pro, 13ch (podle Open Fixture Library) ----------------
+    // 0-1 Pan 16bit (540°), 2-3 Tilt 16bit (230°), 4 Color, 5 Gobo, 6 Shutter, 7 Dimmer,
+    // 8 P/T makra, 9 rychlost maker, 10 křivky dimmeru, 11 P/T speed (0 = rychle), 12 speciální
+    static readonly Color[] PocketColors =
+    {
+        Color.white,                       // open
+        Color.red,
+        new Color(1f, 0.5f, 0.05f),        // oranžová
+        Color.yellow,
+        Color.green,
+        new Color(0.45f, 0.1f, 1f),        // UV
+        Color.blue,
+        new Color(1f, 0.4f, 0.75f),        // růžová
+    };
+
+    static Color PocketColor(int v)
+    {
+        if (v <= 56) return PocketColors[v <= 7 ? 0 : Mathf.Min(1 + (v - 8) / 7, 7)];   // 0-7 open, pak po 7
+        if (v <= 127)                      // půlené barvy mezi sloty
+        {
+            int i = Mathf.Min((v - 57) / 10, 6);
+            return Color.Lerp(PocketColors[i], PocketColors[i + 1], 0.5f);
+        }
+        if (v >= 190 && v <= 193) return Color.white;
+        return Color.HSVToRGB(Mathf.Repeat(Time.time * 0.3f, 1f), 1f, 1f); // rotace kola
+    }
+
+    void ApplyPocketPro(byte[] d, int b, MovingHead h)
+    {
+        if (h == null) return;
+        h.pan = ((I(d, b) << 8) | I(d, b + 1)) / 65535f;
+        h.tilt = ((I(d, b + 2) << 8) | I(d, b + 3)) / 65535f;
+        float spd = Mathf.Lerp(1f, 0.1f, F(d, b + 11));
+        h.maxPanSpeed = 300f * spd;
+        h.maxTiltSpeed = 200f * spd;
+        h.color = PocketColor(I(d, b + 4));
+
+        int gv = I(d, b + 5);                                  // 8 slotů po 8 hodnotách, slot 1 = open
+        if (gv <= 63) h.gobo = gv / 8;
+        else if (gv <= 127) h.gobo = (gv - 64) / 8;            // shake – bereme jako statické gobo
+        else h.gobo = (int)Mathf.Repeat(Time.time * 2f, 8f);   // rotace kola
+
+        float dim = F(d, b + 7);
+        int sh = I(d, b + 6);
+        h.strobeHz = 0f;
+        if (sh <= 7) dim = 0f;                                                     // zavřeno
+        else if (sh >= 16 && sh <= 131) h.strobeHz = Mathf.Lerp(1f, 20f, (sh - 16) / 115f);
+        else if (sh >= 140 && sh <= 181) dim *= Mathf.Repeat(Time.time * Mathf.Lerp(0.5f, 4f, (sh - 140) / 41f), 1f);       // ramp up
+        else if (sh >= 190 && sh <= 231) dim *= 1f - Mathf.Repeat(Time.time * Mathf.Lerp(0.5f, 4f, (sh - 190) / 41f), 1f);  // ramp down
+        else if (sh >= 240 && sh <= 247) h.strobeHz = UnityEngine.Random.Range(2f, 15f);
+        h.dimmer = dim;
     }
 
     // ---------------- LED Pixel Tube 360 RGBWA ----------------

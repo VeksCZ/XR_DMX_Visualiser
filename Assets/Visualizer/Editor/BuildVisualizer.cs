@@ -11,7 +11,7 @@ public static class BuildVisualizer
     const string ScenePath = "Assets/Visualizer/Visualizer.unity";
     const string OutPath = "Build/Windows/DMXVisualiser.exe";
     // Verze aplikace – zvyšovat s každým vydáním (tag na GitHubu = "v" + Version)
-    public const string Version = "0.5.0";
+    public const string Version = "0.5.1";
 
     [MenuItem("Tools/Visualizer/Build Windows EXE")]
     public static void Build()

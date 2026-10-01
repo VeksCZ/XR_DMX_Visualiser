@@ -24,6 +24,8 @@ public class SceneBuilder : MonoBehaviour
     [HideInInspector] public GigBar gigbar;
     [HideInInspector] public PixelTube[] tubes = new PixelTube[4];
     [HideInInspector] public ParLight[] uplights = new ParLight[4];
+    [HideInInspector] public MovingHead[] pockets = new MovingHead[2];
+    Transform gigbarTripod;
 
     float backZ;
 
@@ -71,11 +73,29 @@ public class SceneBuilder : MonoBehaviour
 
         // Gigbar na stativu za DJ stolkem
         float gz = backZ + 1.3f;
-        Tripod(rig, new Vector3(0, 0, gz), gigbarHeight);
+        gigbarTripod = Tripod(rig, new Vector3(0, 0, gz), gigbarHeight);
         gigbar = new GameObject("GigBAR Move + ILS").AddComponent<GigBar>();
         gigbar.transform.SetParent(rig, false);
         gigbar.transform.localPosition = new Vector3(0, gigbarHeight, gz);
         gigbar.Build();
+
+        // 2× ADJ Pocket Pro na předních rozích DJ stolku (stolek: střed backZ+2, 1,8 × 0,9 × 0,7 m)
+        float tableFront = backZ + 2f + 0.35f;
+        float[] pxs = { -0.78f, 0.78f };
+        for (int i = 0; i < 2; i++)
+        {
+            var go = new GameObject(i == 0 ? "Pocket Pro L" : "Pocket Pro R");
+            go.transform.SetParent(rig, false);
+            go.transform.localPosition = new Vector3(pxs[i], 0.9f, tableFront - 0.1f);
+            var h = go.AddComponent<MovingHead>();
+            h.beamAngle = 15f;          // ADJ Pocket Pro: 25 W, 15°
+            h.tiltRange = 230f;
+            h.lightIntensity = 130f;
+            h.beamBrightness = 1.5f;
+            h.beamLength = 10f;
+            h.Build();
+            pockets[i] = h;
+        }
 
         // 4 tuby po stranách stolku, svisle na nízkých stojánkách
         float[] tx = { -2.6f, -1.6f, 1.6f, 2.6f };
@@ -110,7 +130,7 @@ public class SceneBuilder : MonoBehaviour
         }
     }
 
-    void Tripod(Transform parent, Vector3 pos, float h)
+    Transform Tripod(Transform parent, Vector3 pos, float h)
     {
         var t = new GameObject("Tripod").transform;
         t.SetParent(parent, false);
@@ -123,6 +143,27 @@ public class SceneBuilder : MonoBehaviour
             var leg = VisUtil.Prim(PrimitiveType.Cylinder, t, dir * 0.3f + Vector3.up * 0.35f, new Vector3(0.025f, 0.42f, 0.025f), VisUtil.BodyMat);
             leg.localRotation = Quaternion.FromToRotation(Vector3.up, (Vector3.up * 0.7f - dir * 0.6f).normalized);
         }
+        return t;
+    }
+
+    // Zapnutí / vypnutí světla ve scéně (index = pořadí světla daného typu)
+    public void SetVisible(FixtureType type, int index, bool visible)
+    {
+        GameObject go = null;
+        switch (type)
+        {
+            case FixtureType.GigBarMoveILS:
+                if (index == 0 && gigbar != null)
+                {
+                    gigbar.gameObject.SetActive(visible);
+                    if (gigbarTripod != null) gigbarTripod.gameObject.SetActive(visible);
+                }
+                return;
+            case FixtureType.PocketPro: if (index < pockets.Length && pockets[index] != null) go = pockets[index].gameObject; break;
+            case FixtureType.BatteryPar: if (index < uplights.Length && uplights[index] != null) go = uplights[index].gameObject; break;
+            case FixtureType.PixelTube: if (index < tubes.Length && tubes[index] != null) go = tubes[index].gameObject; break;
+        }
+        if (go != null) go.SetActive(visible);
     }
 
     void SetupCamera()
