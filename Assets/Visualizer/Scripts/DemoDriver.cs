@@ -26,7 +26,8 @@ public class DemoDriver : MonoBehaviour
         float c = Mathf.Cos(beat * Mathf.PI / 8f);
         g.headL.pan = 0.5f + 0.12f * s;
         g.headR.pan = 0.5f - 0.12f * s;
-        g.headL.tilt = g.headR.tilt = 0.68f + 0.1f * c;
+        // tilt 0.5 = paprsek kolmo dolů (hlavy visí), ~0.83 = cca 30° pod vodorovnou dopředu
+        g.headL.tilt = g.headR.tilt = 0.80f + 0.06f * c;
         g.headL.dimmer = g.headR.dimmer = phrase == 3 ? pulse : 1f;
         g.headL.color = g.headR.color = phrase % 2 == 0 ? Color.white : hue2;
         g.headL.gobo = g.headR.gobo = bar % 10;
@@ -41,7 +42,8 @@ public class DemoDriver : MonoBehaviour
             float ps = Mathf.Sin(beat * Mathf.PI / 4f + Mathf.PI);
             sb.pockets[0].pan = 0.5f + 0.08f * ps + 0.04f;
             sb.pockets[1].pan = 0.5f - 0.08f * ps - 0.04f;
-            sb.pockets[0].tilt = sb.pockets[1].tilt = 0.62f + 0.05f * c;
+            // stojící hlavy: tilt 0.5 = nahoru, ~0.93 = lehce pod vodorovnou dopředu
+            sb.pockets[0].tilt = sb.pockets[1].tilt = 0.90f + 0.04f * c;
             sb.pockets[0].dimmer = sb.pockets[1].dimmer = phrase == 0 ? 0f : 1f;
             sb.pockets[0].color = sb.pockets[1].color = phrase == 2 ? hue : Color.white;
             sb.pockets[0].gobo = sb.pockets[1].gobo = (bar + 3) % 8;

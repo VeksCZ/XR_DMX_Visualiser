@@ -3,7 +3,8 @@ using UnityEngine;
 // Chauvet GigBAR Move + ILS - zjednodušený model.
 // Rozměry 1100 × 144 × 449 mm (d × hl × v).
 // Pořadí efektů (zleva doprava při pohledu zepředu): moving head, derby, par,
-// laser se strobem, par, derby, moving head. Pozice X uprav podle svého baru.
+// laser se strobem, par, derby, moving head. Moving heady visí pod tyčí, derby sedí nahoře.
+// Pozice X uprav podle svého baru.
 public class GigBar : MonoBehaviour
 {
     [Header("Pozice na tyči (m od středu)")]
@@ -29,12 +30,14 @@ public class GigBar : MonoBehaviour
         float fz = barD * 0.5f + 0.005f;
         float fy = barH * 0.5f;
 
-        headL = Make<MovingHead>("MovingHead L", new Vector3(-headX, barH, 0), Vector3.zero);
-        headR = Make<MovingHead>("MovingHead R", new Vector3(headX, barH, 0), Vector3.zero);
+        // Moving heady visí pod tyčí hlavou dolů (otočené o 180° kolem osy Z)
+        headL = Make<MovingHead>("MovingHead L", new Vector3(-headX, 0, 0), new Vector3(0, 0, 180));
+        headR = Make<MovingHead>("MovingHead R", new Vector3(headX, 0, 0), new Vector3(0, 0, 180));
         headL.Build(); headR.Build();
 
-        derbyL = Make<Derby>("Derby L", new Vector3(-derbyX, fy, fz + 0.04f), new Vector3(frontTilt, 0, 0));
-        derbyR = Make<Derby>("Derby R", new Vector3(derbyX, fy, fz + 0.04f), new Vector3(frontTilt, 0, 0));
+        // Derby sedí nahoře na tyči
+        derbyL = Make<Derby>("Derby L", new Vector3(-derbyX, barH + 0.05f, 0.02f), new Vector3(frontTilt, 0, 0));
+        derbyR = Make<Derby>("Derby R", new Vector3(derbyX, barH + 0.05f, 0.02f), new Vector3(frontTilt, 0, 0));
         derbyL.Build(); derbyR.Build();
         derbyR.rotationSpeed = -derbyR.rotationSpeed;
 

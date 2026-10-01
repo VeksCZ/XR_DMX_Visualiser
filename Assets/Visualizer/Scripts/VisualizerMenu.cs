@@ -90,6 +90,9 @@ public class VisualizerMenu : MonoBehaviour
     readonly List<bool> eOn = new List<bool>();
     int selFixture;
     bool modeSelectOpen;
+    Rect selectRect, selectPopupRect;
+    string[] selectModes;
+    int selectIndex, selectFor;
     Vector2 lightsScroll;
     string settingsError;
 
@@ -690,6 +693,13 @@ public class VisualizerMenu : MonoBehaviour
         GUILayout.EndHorizontal();
         GUILayout.Space(10 * k);
 
+        // Klik mimo rozbalený select ho zavře
+        var ev = Event.current;
+        if (modeSelectOpen && ev.type == EventType.MouseDown && !selectPopupRect.Contains(ev.mousePosition) && !selectRect.Contains(ev.mousePosition))
+            modeSelectOpen = false;
+
+        // Obsah záložky má pevnou výšku – tlačítka jsou vždy na stejném místě vpravo dole
+        GUILayout.BeginVertical(GUILayout.Height(470 * k));
         if (settingsTab == 0)
         {
             GUILayout.Label(Loc.T("language"), sHead);
@@ -718,14 +728,37 @@ public class VisualizerMenu : MonoBehaviour
             GUILayout.Label(Loc.T("artnetHint"), sDim);
         }
 
+        GUILayout.FlexibleSpace();
+        GUILayout.EndVertical();
+
         GUILayout.Space(10 * k);
-        if (!string.IsNullOrEmpty(settingsError)) GUILayout.Label(settingsError, sWarn);
         GUILayout.BeginHorizontal();
+        if (!string.IsNullOrEmpty(settingsError)) GUILayout.Label(settingsError, sWarn);
         GUILayout.FlexibleSpace();
         if (GUILayout.Button(Loc.T("ok"), sButton, GUILayout.Width(90 * k))) { if (ApplySettings()) winOpen[WinSettings] = false; }
         if (GUILayout.Button(Loc.T("apply"), sButton, GUILayout.Width(90 * k))) ApplySettings();
         if (GUILayout.Button(Loc.T("cancel"), sButton, GUILayout.Width(90 * k))) CloseSettingsWithoutSaving();
         GUILayout.EndHorizontal();
+
+        if (settingsTab == 1 && modeSelectOpen) DrawModePopup();
+    }
+
+    // Rozbalený select režimu kanálů – plovoucí nabídka pod tlačítkem, nic neposouvá
+    void DrawModePopup()
+    {
+        if (selectModes == null || selectFor < 0 || selectFor >= e40.Count) return;
+        float ih = 24 * k;
+        selectPopupRect = new Rect(selectRect.x, selectRect.yMax + 2 * k, selectRect.width, ih * selectModes.Length + 4 * k);
+        GUI.DrawTexture(selectPopupRect, tDrop);
+        for (int j = 0; j < selectModes.Length; j++)
+        {
+            var r = new Rect(selectPopupRect.x, selectPopupRect.y + 2 * k + j * ih, selectPopupRect.width, ih);
+            if (GUI.Button(r, (j == selectIndex ? "✓  " : "     ") + selectModes[j], sDropItem))
+            {
+                e40[selectFor] = j == 1;
+                modeSelectOpen = false;
+            }
+        }
     }
 
     // Světla: vlevo seznam se zatržítky (zobrazit ve scéně), vpravo nastavení vybraného světla
@@ -797,27 +830,17 @@ public class VisualizerMenu : MonoBehaviour
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
 
-            // select režimu kanálů
+            // select režimu kanálů – rozbalená nabídka se kreslí navrch (DrawModePopup), nic neposouvá
             var modes = FixtureEntry.Modes(f.type);
             int mi = Mathf.Clamp(e40[i] ? 1 : 0, 0, modes.Length - 1);
             GUILayout.BeginHorizontal();
             GUILayout.Label(Loc.T("channelMode"), sLabel, GUILayout.Width(lw));
             if (GUILayout.Button(modes[mi] + "   ▾", sSelect)) modeSelectOpen = !modeSelectOpen;
+            if (Event.current.type == EventType.Repaint) selectRect = GUILayoutUtility.GetLastRect();
             GUILayout.EndHorizontal();
-            if (modeSelectOpen)
-            {
-                GUILayout.BeginHorizontal();
-                GUILayout.Space(lw + 4 * k);
-                GUILayout.BeginVertical(GUI.skin.box);
-                for (int j = 0; j < modes.Length; j++)
-                    if (GUILayout.Button((j == mi ? "✓  " : "     ") + modes[j], sListItem))
-                    {
-                        e40[i] = j == 1;
-                        modeSelectOpen = false;
-                    }
-                GUILayout.EndVertical();
-                GUILayout.EndHorizontal();
-            }
+            selectModes = modes;
+            selectIndex = mi;
+            selectFor = i;
 
             GUILayout.Space(8 * k);
             int ch = FixtureEntry.Channels(f.type, e40[i]);

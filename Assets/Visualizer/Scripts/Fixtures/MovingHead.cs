@@ -63,7 +63,9 @@ public class MovingHead : MonoBehaviour
         curPan = Mathf.MoveTowards(curPan, tp, maxPanSpeed * Time.deltaTime);
         curTilt = Mathf.MoveTowards(curTilt, tt, maxTiltSpeed * Time.deltaTime);
         yoke.localRotation = Quaternion.Euler(0, curPan, 0);
-        head.localRotation = Quaternion.Euler(curTilt, 0, 0);
+        // Tilt 0 (střed DMX rozsahu) = paprsek ve směru podstavy: u stojící hlavy nahoru,
+        // u zavěšené (otočené o 180°) dolů – stejně jako u skutečných moving headů.
+        head.localRotation = Quaternion.Euler(curTilt - 90f, 0, 0);
 
         float I = dimmer * VisUtil.StrobeGate(strobeHz);
         VisUtil.SetColor(beam, color, I * beamBrightness);

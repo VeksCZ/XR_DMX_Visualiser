@@ -10,7 +10,7 @@ public class Derby : MonoBehaviour
 
     [Header("Parametry")]
     public float coverage = 131f;
-    public int beamsPerColor = 4;
+    public int beamsPerColor = 8;
     public float beamAngle = 4f;
     public float beamLength = 6f;
     [Tooltip("Derby má jen 6,5 W LED, paprsky jsou v reálu slabé")]
