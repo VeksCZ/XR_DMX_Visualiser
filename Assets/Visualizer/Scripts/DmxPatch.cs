@@ -640,9 +640,8 @@ public class DmxPatch : MonoBehaviour
         p.strobeHz = StrobeHz(I(d, b + 6));
     }
 
-    // BeamZ DerbyStrobe (153.685), 6ch. V knihovně SoundSwitche profil není, rozložení je ODHAD
-    // podle manuálu (ověřit s kolegovým profilem):
-    // 0 barva derby (makro), 1 strobo derby, 2 rotace derby, 3 jas strobo panelu, 4 rychlost strobo panelu, 5 auto/zvuk
+    // BeamZ "Derby Strobe" (153.685), 6ch, profil ze SoundSwitch Fixture Manageru (Mode 1 - DMX:6):
+    // 0 (ch1) v profilu nepoužit, 1 Color Wheel, 2 Rotation, 3 Strobe (0-159), 4 Mode, 5 Mode Speed
     static readonly Color[] DerbyMacro =
     {
         new Color(1,0,0,0), new Color(0,1,0,0), new Color(0,0,1,0), new Color(0,0,0,1),
@@ -655,15 +654,37 @@ public class DmxPatch : MonoBehaviour
     {
         if (ds == null || ds.derby == null) return;
         var dr = ds.derby;
-        int cv = I(d, b);
-        Color k = cv < 10 ? Color.clear : DerbyMacro[Mathf.Min((cv - 10) * DerbyMacro.Length / 246, DerbyMacro.Length - 1)];
-        if (I(d, b + 5) > 10)   // auto program: střídání barev v rytmu
+        int cv = I(d, b + 1);
+        int st = I(d, b + 3);
+        int mode = I(d, b + 4);
+        float modeSpeed = F(d, b + 5);
+        Color k = DerbyWheel(cv);
+        if (cv >= 90)            // za koncem kola: střídání barev
             k = DerbyMacro[(int)(Time.time * 2f) % DerbyMacro.Length];
+        if (mode >= 10)          // vestavěný program: barvy dokola rychlostí z ch6
+            k = DerbyMacro[(int)(Time.time * Mathf.Lerp(0.5f, 6f, modeSpeed)) % DerbyMacro.Length];
         dr.red = k.r; dr.green = k.g; dr.blue = k.b; dr.white = k.a;
-        dr.strobeHz = StrobeHz(I(d, b + 1));
+        dr.strobeHz = 0f;
         dr.rotationSpeed = Rotation(I(d, b + 2), 150f);
-        ds.strobeDimmer = F(d, b + 3);
-        ds.strobeHz = I(d, b + 4) < 10 ? 0f : Mathf.Lerp(1f, 20f, (I(d, b + 4) - 10) / 245f);
+        if (mode >= 10 && I(d, b + 2) < 5) dr.rotationSpeed = Mathf.Lerp(30f, 150f, modeSpeed);
+        // ch4 strobe (SS rozsah 0-159): bílý SMD panel bliká, rychlost roste s hodnotou
+        bool strobe = st >= 10;
+        ds.strobeDimmer = strobe ? 1f : 0f;
+        ds.strobeHz = strobe ? Mathf.Lerp(1f, 20f, Mathf.Clamp01((st - 10) / 149f)) : 0f;
+    }
+
+    // Kolo barev podle SS profilu (Wheel 1): po desítkách od 10
+    static Color DerbyWheel(int v)
+    {
+        if (v < 10) return Color.clear;
+        if (v < 20) return new Color(1f, 0.15f, 0f, 0f);   // scarlet
+        if (v < 30) return new Color(0f, 1f, 0f, 0f);      // green
+        if (v < 40) return new Color(0f, 0.2f, 1f, 0f);    // blue
+        if (v < 50) return new Color(1f, 0.98f, 0f, 0f);   // yellow
+        if (v < 60) return new Color(1f, 0.25f, 1f, 0f);   // pink
+        if (v < 80) return new Color(1f, 1f, 1f, 1f);      // 60-79 v profilu chybí -> bílá
+        if (v < 90) return new Color(0f, 0.99f, 1f, 0f);   // cyan / aqua
+        return Color.clear;                                 // >= 90 řeší volající (střídání barev)
     }
 
     // BeamZ MHL820 Double Helix, 18ch (profil ze SoundSwitch knihovny):
