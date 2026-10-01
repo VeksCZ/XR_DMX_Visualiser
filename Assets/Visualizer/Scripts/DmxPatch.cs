@@ -80,11 +80,15 @@ public class FixtureEntry
     public static List<FixtureEntry> ColleagueDefaults() => new List<FixtureEntry>
     {
         // pořadí v seznamu = pozice na rampě (první = vlevo z pohledu DJ), adresy jsou z jeho patche
-        new FixtureEntry(FixtureType.DerbyStrobe, "Derby Strobe L", 1),
-        new FixtureEntry(FixtureType.DerbyStrobe, "Derby Strobe R", 28),
+        new FixtureEntry(FixtureType.DerbyStrobe, "Derby Strobe L", 28),
+        new FixtureEntry(FixtureType.DerbyStrobe, "Derby Strobe R", 1),
         new FixtureEntry(FixtureType.BlackPar, "Black Par L", 18),
         new FixtureEntry(FixtureType.BlackPar, "Black Par R", 8),
         new FixtureEntry(FixtureType.Hazer, "Hurricane Haze 4D", 35) { mode40ch = true },
+        // projekt „Save 1_5 hlavy“: navíc 2× Pocket Pro (stejné umístění jako u tebe – rohy stolku)
+        // kalibrace převzatá z tvé sestavy – kolega si ji doladí tlačítkem „Aktuální pozice ze SS = střed parketu“
+        new FixtureEntry(FixtureType.PocketPro, "Pocket Pro L", 46) { panOffset = 10f, tiltOffset = 43f },
+        new FixtureEntry(FixtureType.PocketPro, "Pocket Pro R", 60) { panOffset = -44f, tiltOffset = 45f },
         new FixtureEntry(FixtureType.DoubleHelix, "Helix (nepoužívá)", 495),
     };
 
