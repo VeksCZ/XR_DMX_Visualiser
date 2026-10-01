@@ -19,7 +19,9 @@ public class MovingHead : MonoBehaviour
     public float maxTiltSpeed = 200f;
     public float beamAngle = 17f;
     public float beamLength = 12f;
-    public float lightIntensity = 60f;
+    public float lightIntensity = 160f;
+    [Tooltip("Viditelnost paprsku v hazu (32 W spot je nejsilnější světlo rigu)")]
+    public float beamBrightness = 1.8f;
 
     Transform yoke, head;
     Renderer beam, lens;
@@ -64,7 +66,7 @@ public class MovingHead : MonoBehaviour
         head.localRotation = Quaternion.Euler(curTilt, 0, 0);
 
         float I = dimmer * VisUtil.StrobeGate(strobeHz);
-        VisUtil.SetColor(beam, color, I * 0.9f);
+        VisUtil.SetColor(beam, color, I * beamBrightness);
         VisUtil.SetColor(lens, color, I * 6f);
         spot.color = color;
         spot.intensity = I * lightIntensity;

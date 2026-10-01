@@ -7,10 +7,12 @@ public static class VisUtil
     public static Material BeamMat, EmissiveMat, BodyMat, FloorMat, WallMat;
     static readonly Dictionary<string, Mesh> meshCache = new Dictionary<string, Mesh>();
     static MaterialPropertyBlock mpb;
+    static Shader litShader;
 
-    public static void Init(Shader beam, Shader emissive)
+    public static void Init(Shader beam, Shader emissive, Shader lit = null)
     {
         if (BeamMat != null) return;
+        litShader = lit;
         BeamMat = new Material(beam != null ? beam : Shader.Find("Visualizer/Beam"));
         EmissiveMat = new Material(emissive != null ? emissive : Shader.Find("Visualizer/Emissive"));
         BodyMat = LitMat(new Color(0.06f, 0.06f, 0.07f));
@@ -20,7 +22,7 @@ public static class VisUtil
 
     public static Material LitMat(Color c)
     {
-        var sh = Shader.Find("Universal Render Pipeline/Lit");
+        var sh = litShader != null ? litShader : Shader.Find("Universal Render Pipeline/Lit");
         if (sh == null) sh = Shader.Find("Standard");
         var m = new Material(sh);
         m.SetColor("_BaseColor", c);

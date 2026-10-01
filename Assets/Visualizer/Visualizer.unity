@@ -132,6 +132,7 @@ GameObject:
   - component: {fileID: 176753528}
   - component: {fileID: 176753527}
   - component: {fileID: 176753526}
+  - component: {fileID: 176753531}
   m_Layer: 0
   m_Name: Visualizer
   m_TagString: Untagged
@@ -154,6 +155,7 @@ MonoBehaviour:
   artnet: {fileID: 0}
   scene: {fileID: 0}
   demo: {fileID: 0}
+  forceDemo: 0
   gigbarUniverse: 0
   gigbarAddress: 200
   parUniverse: 0
@@ -211,6 +213,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SceneBuilder
   beamShader: {fileID: 4800000, guid: 92761bcce20197a47b10c3e85cf96e8d, type: 3}
   emissiveShader: {fileID: 4800000, guid: c56367ed9cb38de4fa4c442f48cab7b3, type: 3}
+  litShader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
   haze: 1
   roomWidth: 14
   roomDepth: 12
@@ -243,6 +246,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &176753531
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 176753525}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93112e3a4d619ba488bbb296d290fcbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VisualizerMenu
 --- !u!1 &303779372
 GameObject:
   m_ObjectHideFlags: 0

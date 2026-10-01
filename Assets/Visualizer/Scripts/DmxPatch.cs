@@ -9,6 +9,8 @@ public class DmxPatch : MonoBehaviour
     public ArtNetReceiver artnet;
     public SceneBuilder scene;
     public DemoDriver demo;
+    [Tooltip("Ignorovat Art-Net a pouštět demo")]
+    public bool forceDemo;
 
     [Header("GigBar Move ILS (EU) - 52ch")]
     public int gigbarUniverse = 0;
@@ -47,7 +49,7 @@ public class DmxPatch : MonoBehaviour
     void Update()
     {
         if (artnet == null || scene == null || scene.gigbar == null) return;
-        bool live = artnet.HasData;
+        bool live = artnet.HasData && !forceDemo;
         if (demo != null) demo.enabled = !live; // bez Art-Netu běží demo
         if (!live) return;
 

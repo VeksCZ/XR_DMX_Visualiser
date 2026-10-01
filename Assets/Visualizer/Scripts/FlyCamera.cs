@@ -10,7 +10,10 @@ public class FlyCamera : MonoBehaviour
     public float lookSpeed = 0.15f;
     float yaw, pitch;
 
-    void Start()
+    void Start() { SyncAngles(); }
+
+    // Po programovém přesunu kamery (předvolby pohledu) převezme aktuální natočení.
+    public void SyncAngles()
     {
         var e = transform.eulerAngles;
         yaw = e.y;

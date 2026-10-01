@@ -6,6 +6,8 @@ public class SceneBuilder : MonoBehaviour
     [Header("Shadery (přetáhni z Visualizer/Shaders)")]
     public Shader beamShader;
     public Shader emissiveShader;
+    [Tooltip("URP/Lit – musí být přiřazený, aby se dostal do buildu")]
+    public Shader litShader;
 
     [Header("Atmosféra")]
     [Range(0, 3)] public float haze = 1f;
@@ -27,10 +29,11 @@ public class SceneBuilder : MonoBehaviour
 
     void Awake()
     {
-        VisUtil.Init(beamShader, emissiveShader);
+        VisUtil.Init(beamShader, emissiveShader, litShader);
         BuildRoom();
         BuildRig();
         SetupCamera();
+        if (GetComponent<VisualizerMenu>() == null) gameObject.AddComponent<VisualizerMenu>();
     }
 
     void Update()
