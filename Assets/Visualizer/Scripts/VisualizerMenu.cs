@@ -21,6 +21,7 @@ public class VisualizerSettings
     public string language = "";      // "cs" / "en", prázdné = podle systému
     public bool showStatusBar = true;
     public bool panelOpen = true;
+    public bool panelMinimized = false;
 
     public static string FilePath => Path.Combine(Application.persistentDataPath, "settings.json");
 
@@ -90,7 +91,7 @@ public class VisualizerMenu : MonoBehaviour
 
     float k = 1f;
     bool stylesReady;
-    GUIStyle sBar, sBarItem, sDrop, sDropItem, sWin, sWinTitle, sClose, sLabel, sHead, sDim, sWarn, sButton, sBig, sTab, sField, sToggle, sStatus;
+    GUIStyle sBar, sBarItem, sDrop, sDropItem, sWin, sWinTitle, sClose, sMin, sMini, sLabel, sHead, sDim, sWarn, sButton, sBig, sTab, sField, sToggle, sStatus;
     string[] winTitles = new string[5];
     Texture2D tBar, tDrop, tWin, tHover, tOn, tStatus, tTabOn, tCloseHover;
 
@@ -286,7 +287,8 @@ public class VisualizerMenu : MonoBehaviour
 
     void TogglePanel()
     {
-        winOpen[WinPanel] = !winOpen[WinPanel];
+        if (winOpen[WinPanel] && s.panelMinimized) s.panelMinimized = false;   // sbalený → rozbalit
+        else winOpen[WinPanel] = !winOpen[WinPanel];
         s.panelOpen = winOpen[WinPanel];
         s.Save();
     }
@@ -404,6 +406,11 @@ public class VisualizerMenu : MonoBehaviour
         sClose = new GUIStyle { fontSize = Mathf.RoundToInt(16 * k), alignment = TextAnchor.MiddleCenter };
         sClose.normal.textColor = dim;
         sClose.hover.textColor = Color.white; sClose.hover.background = tCloseHover;
+        sMin = new GUIStyle(sClose);
+        sMin.hover.background = tOn;
+        sMini = new GUIStyle { fontSize = Mathf.RoundToInt(18 * k), alignment = TextAnchor.MiddleCenter };
+        sMini.normal.background = tWin; sMini.normal.textColor = text;
+        sMini.hover.background = tHover; sMini.hover.textColor = Color.white;
 
         sLabel = new GUIStyle(GUI.skin.label) { fontSize = fs, wordWrap = true };
         sLabel.normal.textColor = text;
@@ -445,6 +452,13 @@ public class VisualizerMenu : MonoBehaviour
         {
             if (!winOpen[w]) continue;
             if (winRect[w].width < 1) OpenWindow(w);
+            if (w == WinPanel && s.panelMinimized)
+            {
+                // sbalený panel = jen malé tlačítko v rohu
+                var mini = new Rect(8 * k, BarH + 8 * k, 34 * k, 30 * k);
+                if (GUI.Button(mini, new GUIContent("≡", Loc.T("panelTitle")), sMini)) { s.panelMinimized = false; s.Save(); }
+                continue;
+            }
             winRect[w] = GUILayout.Window(10 + w, winRect[w], DrawWindow, GUIContent.none, sWin);
             winRect[w].x = Mathf.Clamp(winRect[w].x, 0, Screen.width - 60 * k);
             winRect[w].y = Mathf.Clamp(winRect[w].y, BarH, Mathf.Max(BarH, Screen.height - StatusH - 40 * k));
@@ -554,6 +568,11 @@ public class VisualizerMenu : MonoBehaviour
         {
             winOpen[w] = false;
             if (w == WinPanel) { s.panelOpen = false; s.Save(); }
+        }
+        if (w == WinPanel && GUI.Button(new Rect(winRect[w].width - 58 * k, 4 * k, 26 * k, 24 * k), "–", sMin))
+        {
+            s.panelMinimized = true;
+            s.Save();
         }
 
         switch (w)
