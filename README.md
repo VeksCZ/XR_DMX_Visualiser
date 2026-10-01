@@ -32,7 +32,7 @@
 Rozložení kanálů odpovídá profilům v knihovně SoundSwitche.
 
 ### Instalace
-**Windows:** stáhni `DMXVisualiser-vX.Y.Z-win64.zip` z [Releases](../../releases), rozbal a spusť `DMXVisualiser.exe`. PC musí být ve stejné síti jako SoundSwitch (nebo na stejném PC).
+**Windows:** stáhni `DMXVisualiser-vX.Y.Z-win64.zip` z [Releases](../../releases), rozbal a spusť `DMXVisualiser.exe`. Aplikace je portable – nastavení (`settings.json`) se ukládá do její složky; složku přenášej celou, samotné exe nefunguje. PC musí být ve stejné síti jako SoundSwitch (nebo na stejném PC).
 
 **Quest 3:** zapni na Questu vývojářský režim a nainstaluj APK z [Releases](../../releases):
 ```
@@ -77,7 +77,7 @@ A 3D DMX lighting visualiser for **SoundSwitch**. It receives Art-Net straight f
 Channel layouts follow the profiles in the SoundSwitch fixture library.
 
 ### Installation
-**Windows:** download `DMXVisualiser-vX.Y.Z-win64.zip` from [Releases](../../releases), unzip and run `DMXVisualiser.exe`. The PC must be on the same network as SoundSwitch (or the same PC).
+**Windows:** download `DMXVisualiser-vX.Y.Z-win64.zip` from [Releases](../../releases), unzip and run `DMXVisualiser.exe`. The app is portable – settings (`settings.json`) are stored in its folder; move the whole folder, the exe alone does not run. The PC must be on the same network as SoundSwitch (or the same PC).
 
 **Quest 3:** enable developer mode on the Quest and install the APK from [Releases](../../releases):
 ```
