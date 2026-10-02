@@ -81,7 +81,26 @@ public class SceneBuilder : MonoBehaviour
                 l.enabled = false;
                 houseLights.Add(l);
             }
+
+        // Odražené světlo (od podlahy, stolů, lidí): měkké bodové zdroje v půlce výšky sálu,
+        // rozsvítí strop a horní části stěn bez ostrých fleků
+        foreach (float x in new[] { -roomWidth * 0.25f, roomWidth * 0.25f })
+            foreach (float z in new[] { -roomDepth * 0.2f, roomDepth * 0.2f })
+            {
+                var go = new GameObject("Bounce light");
+                go.transform.SetParent(parent, false);
+                go.transform.localPosition = new Vector3(x, ceiling * 0.45f, z);
+                var l = go.AddComponent<Light>();
+                l.type = LightType.Point;
+                l.range = Mathf.Max(roomWidth, roomDepth);
+                l.color = warm;
+                l.shadows = LightShadows.None;
+                l.intensity = 0f;
+                l.enabled = false;
+                bounceLights.Add(l);
+            }
     }
+    readonly System.Collections.Generic.List<Light> bounceLights = new System.Collections.Generic.List<Light>();
 
     void ApplyRoomLight()
     {
@@ -92,6 +111,11 @@ public class SceneBuilder : MonoBehaviour
         {
             l.enabled = v > 0.001f;
             l.intensity = v * 90f;
+        }
+        foreach (var l in bounceLights)
+        {
+            l.enabled = v > 0.001f;
+            l.intensity = v * 5f;
         }
         foreach (var f in houseFixtures) VisUtil.SetColor(f, warm, v * 8f);
         // rozptýlené světlo odražené od stěn a stropu, aby nebyly úplně černé kouty ani strop
@@ -129,7 +153,7 @@ public class SceneBuilder : MonoBehaviour
         shell = new GameObject("Shell").transform;
         shell.SetParent(room, false);
         VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(0, -0.01f, 0), new Vector3(w, 0.02f, d), VisUtil.FloorMat);
-        VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(0, ceiling, 0), new Vector3(w, 0.02f, d), VisUtil.BodyMat);
+        VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(0, ceiling, 0), new Vector3(w, 0.02f, d), VisUtil.LitMat(new Color(0.6f, 0.58f, 0.55f))); // světlá omítka
         VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(0, ceiling * 0.5f, backZ), new Vector3(w, ceiling, 0.1f), VisUtil.WallMat);
         VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(0, ceiling * 0.5f, -backZ), new Vector3(w, ceiling, 0.1f), VisUtil.WallMat);
         VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(-w * 0.5f, ceiling * 0.5f, 0), new Vector3(0.1f, ceiling, d), VisUtil.WallMat);
