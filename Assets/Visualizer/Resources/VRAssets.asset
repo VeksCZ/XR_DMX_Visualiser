@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4786285328dd154489e3f9c6da21f738, type: 3}
   m_Name: VRAssets
   m_EditorClassIdentifier: Assembly-CSharp::VRAssets
-  leftController: {fileID: 919132149155446097, guid: 2b1aaafc31655024394d83dc00911c1c, type: 3}
-  rightController: {fileID: 919132149155446097, guid: deed68a7fd2e9234899298cf80fae7ad, type: 3}
+  leftController: {fileID: 919132149155446097, guid: 0ae1fc82598757941b054cc6c32eb201, type: 3}
+  rightController: {fileID: 919132149155446097, guid: 9b5bab78ecd275c44a5d8e7793894e47, type: 3}
   modelOffset: {x: 0, y: -0.03, z: -0.04}
   modelRotation: {x: -60, y: 0, z: 0}

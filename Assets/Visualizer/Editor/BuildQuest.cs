@@ -113,7 +113,7 @@ public static class BuildQuest
     {
         const string dir = "Assets/Visualizer/Resources";
         const string path = dir + "/VRAssets.asset";
-        const string meshes = "Packages/com.meta.xr.sdk.core/Meshes/MetaQuestTouchPlus/";
+        const string meshes = "Assets/Visualizer/VR/Controllers/";   // modely Touch Plus převzaté z Meta XR SDK
         Directory.CreateDirectory(dir);
         var a = AssetDatabase.LoadAssetAtPath<VRAssets>(path);
         if (a == null) { a = ScriptableObject.CreateInstance<VRAssets>(); AssetDatabase.CreateAsset(a, path); }

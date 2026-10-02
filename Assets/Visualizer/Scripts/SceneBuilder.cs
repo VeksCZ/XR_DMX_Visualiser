@@ -244,7 +244,10 @@ public class SceneBuilder : MonoBehaviour
             var go = new GameObject("Tube " + (i + 1));
             go.transform.SetParent(rig, false);
             go.transform.localPosition = new Vector3(tx[i], 0.25f, backZ + 1.6f);
-            VisUtil.Prim(PrimitiveType.Cylinder, go.transform, new Vector3(0, -0.125f, 0), new Vector3(0.03f, 0.125f, 0.03f), VisUtil.BodyMat);
+            // černý stojánek s patkou a malou krabičkou s ovládáním a displejem pod tubou
+            VisUtil.Prim(PrimitiveType.Cylinder, go.transform, new Vector3(0, -0.24f, 0), new Vector3(0.2f, 0.01f, 0.2f), VisUtil.BodyMat);
+            VisUtil.Prim(PrimitiveType.Cylinder, go.transform, new Vector3(0, -0.17f, 0), new Vector3(0.03f, 0.07f, 0.03f), VisUtil.BodyMat);
+            VisUtil.Prim(PrimitiveType.Cube, go.transform, new Vector3(0, -0.05f, 0), new Vector3(0.06f, 0.1f, 0.06f), VisUtil.BodyMat);
             var t = go.AddComponent<PixelTube>();
             t.segments = Mathf.Max(16, tubeSegments); // jemnější dělení kvůli efektům tuby (40ch se roztáhne)
             t.Build();
@@ -257,10 +260,11 @@ public class SceneBuilder : MonoBehaviour
         {
             var go = new GameObject("BatteryPar " + (i + 1));
             go.transform.SetParent(rig, false);
-            go.transform.localPosition = new Vector3(ux[i], 0.12f, backZ + 0.35f);
+            go.transform.localPosition = new Vector3(ux[i], 0.21f, backZ + 0.35f);   // čočka nahoře, těleso stojí na zemi
             go.transform.localEulerAngles = new Vector3(-100f, 0, 0); // nahoru, mírně ke stěně
             var p = go.AddComponent<ParLight>();
             p.housing = ParLight.Housing.Box;
+            p.boxDims = new Vector3(0.11f, 0.11f, 0.2f);   // čínský battery par: užší a vyšší těleso
             p.beamAngle = 25f;   // odhad, uprav podle manuálu
             p.fieldAngle = 40f;
             p.beamLength = 5f;

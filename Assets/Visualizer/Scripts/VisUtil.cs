@@ -141,6 +141,16 @@ public static class VisUtil
         return l;
     }
 
+    // Vzhled svítící plochy ve vypnutém stavu: pevná barva + barva osvětlená okolním světlem sálu
+    public static void SetOffLook(Renderer r, Color baseColor, Color albedo)
+    {
+        if (mpb == null) mpb = new MaterialPropertyBlock();
+        r.GetPropertyBlock(mpb);
+        mpb.SetColor("_Base", baseColor);
+        mpb.SetColor("_Albedo", albedo);
+        r.SetPropertyBlock(mpb);
+    }
+
     public static void SetColor(Renderer r, Color c, float intensity)
     {
         if (mpb == null) mpb = new MaterialPropertyBlock();

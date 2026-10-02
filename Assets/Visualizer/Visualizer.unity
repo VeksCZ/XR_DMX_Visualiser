@@ -338,7 +338,16 @@ MonoBehaviour:
   helixes:
   - {fileID: 0}
   - {fileID: 0}
+  roomLight: 0
   ceilingOverride: -1
+  eventTable: {fileID: 0}
+  djBooth: {fileID: 0}
+  speakers12:
+  - {fileID: 0}
+  - {fileID: 0}
+  speakers14:
+  - {fileID: 0}
+  - {fileID: 0}
 --- !u!4 &176753530
 Transform:
   m_ObjectHideFlags: 0

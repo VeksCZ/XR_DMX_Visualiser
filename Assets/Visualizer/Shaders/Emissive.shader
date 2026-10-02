@@ -6,6 +6,7 @@ Shader "Visualizer/Emissive"
         _Color ("Color", Color) = (1,1,1,1)
         _Intensity ("Intensity", Float) = 1
         _Base ("Off color", Color) = (0.03,0.03,0.035,1)
+        _Albedo ("Lit off color (× ambient)", Color) = (0,0,0,1)
     }
     SubShader
     {
@@ -21,6 +22,7 @@ Shader "Visualizer/Emissive"
             float4 _Color;
             float _Intensity;
             float4 _Base;
+            float4 _Albedo;
 
             struct appdata
             {
@@ -45,7 +47,8 @@ Shader "Visualizer/Emissive"
 
             float4 frag (v2f i) : SV_Target
             {
-                return float4(_Base.rgb + _Color.rgb * _Intensity, 1);
+                // _Albedo: barva povrchu ve vypnutém stavu osvětlená okolním světlem sálu (mléčný difuzor tub)
+                return float4(_Base.rgb + _Albedo.rgb * unity_AmbientSky.rgb + _Color.rgb * _Intensity, 1);
             }
             ENDCG
         }

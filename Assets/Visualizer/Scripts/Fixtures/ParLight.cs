@@ -21,6 +21,8 @@ public class ParLight : MonoBehaviour
 
     [Tooltip("1 = jedna velká čočka, 3 = tři LED do trojúhelníku (GigBar)")]
     public int ledCount = 1;
+    [Tooltip("Rozměry hranatého těla (š, v, hloubka za čočkou); 0 = odvodit z 'size'")]
+    public Vector3 boxDims;
 
     Renderer core, field, lens;
     Renderer[] leds;
@@ -32,7 +34,10 @@ public class ParLight : MonoBehaviour
         if (housing == Housing.Round)
             VisUtil.Prim(PrimitiveType.Cylinder, transform, new Vector3(0, 0, -size * 0.4f), new Vector3(size, size * 0.4f, size), m, new Vector3(90, 0, 0));
         else
-            VisUtil.Prim(PrimitiveType.Cube, transform, new Vector3(0, 0, -size * 0.5f), new Vector3(size * 1.6f, size * 1.6f, size), m);
+        {
+            var bd = boxDims != Vector3.zero ? boxDims : new Vector3(size * 1.6f, size * 1.6f, size);
+            VisUtil.Prim(PrimitiveType.Cube, transform, new Vector3(0, 0, -bd.z * 0.5f), bd, m);
+        }
 
         if (ledCount == 3)
         {
