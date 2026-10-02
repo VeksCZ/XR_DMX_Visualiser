@@ -179,7 +179,7 @@ public class SceneBuilder : MonoBehaviour
 
     void BuildTables(Transform room)
     {
-        var white = VisUtil.LitMat(new Color(0.93f, 0.93f, 0.91f));
+        var white = LycraWhite;   // stejná látka jako lycra na stativech repro
         var black = VisUtil.LitMat(new Color(0.03f, 0.03f, 0.035f));
         eventTable = Table(room, "ADJ Pro Event Table II", EventTableSize, white, VisUtil.BodyMat);
         djBooth = Table(room, "Vonyx DB3 Pro", BoothSize, black, VisUtil.BodyMat);
@@ -438,10 +438,11 @@ public class SceneBuilder : MonoBehaviour
         mesh.SetTriangles(tri, 0);
         mesh.RecalculateNormals();
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
-        go.AddComponent<MeshRenderer>().sharedMaterial = lycraMat ??= VisUtil.LitMat(new Color(0.92f, 0.92f, 0.9f));
+        go.AddComponent<MeshRenderer>().sharedMaterial = LycraWhite;
         return t;
     }
     static Material lycraMat;
+    static Material LycraWhite => lycraMat != null ? lycraMat : (lycraMat = VisUtil.LitMat(new Color(0.92f, 0.92f, 0.9f)));
 
     Transform Tripod(Transform parent, Vector3 pos, float h)
     {
