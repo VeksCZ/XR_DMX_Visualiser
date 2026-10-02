@@ -14,6 +14,9 @@
 - **Seznam světel** – adresy, režimy, zobrazení/skrytí jednotlivých světel, detail kanálů.
 - **Kalibrace pohyblivých hlav** – pan/tilt offset, invertování, jedním klikem „současná pozice = střed parketu“ (SS Stage Center).
 - **Předvolby sestav** – „Moje“ a „Kolega“ jdou načíst jedním tlačítkem.
+- **Profily světel v JSON** – nové světlo přidáš souborem do složky `Profiles`, bez nového buildu. Popis formátu: [Docs/PROFILES.md](Docs/PROFILES.md).
+- **Sestava jako soubor** – export / import celé sestavy (světla, adresy, kalibrace, umístění, vlastní profily) pro kolegu nebo jiný počítač.
+- **Libovolný počet světel** – přidávání, odebírání a řazení v seznamu, vlastní umístění každého světla ve scéně.
 - **Automatické aktualizace** – Windows verze si sama stáhne nové vydání z GitHubu.
 - **Meta Quest 3** – nativní VR aplikace: menu v brýlích, ovladače, pohyb pákami a teleport, volitelně passthrough a naskenovaná místnost s umístěním DJ stolu.
 
@@ -29,10 +32,10 @@
 | BeamZ DerbyStrobe | 6ch |
 | BeamZ MHL820 Double Helix | 18ch |
 
-Rozložení kanálů odpovídá profilům v knihovně SoundSwitche.
+Rozložení kanálů odpovídá profilům v knihovně SoundSwitche. Další světla jde přidat vlastním profilem (viz [Docs/PROFILES.md](Docs/PROFILES.md)).
 
 ### Instalace
-**Windows:** stáhni `DMXVisualiser-vX.Y.Z-win64.zip` z [Releases](../../releases), rozbal a spusť `DMXVisualiser.exe`. Aplikace je portable – nastavení (`settings.json`) se ukládá do její složky; složku přenášej celou, samotné exe nefunguje. PC musí být ve stejné síti jako SoundSwitch (nebo na stejném PC).
+**Windows:** stáhni `DMXVisualiser-vX.Y.Z-win64.zip` z [Releases](../../releases), rozbal a spusť `DMXVisualiser.exe`. Aplikace je portable – nastavení (`settings.json`), vlastní profily (`Profiles`) a sestavy (`Rigs`) jsou v její složce; složku přenášej celou, samotné exe nefunguje. PC musí být ve stejné síti jako SoundSwitch (nebo na stejném PC).
 
 **Quest 3:** zapni na Questu vývojářský režim a nainstaluj APK z [Releases](../../releases):
 ```
@@ -59,6 +62,9 @@ A 3D DMX lighting visualiser for **SoundSwitch**. It receives Art-Net straight f
 - **Fixture list** – addresses, modes, show/hide per fixture, channel detail.
 - **Moving head calibration** – pan/tilt offset, invert, one click "current position = dance floor centre" (SS Stage Center).
 - **Rig presets** – "Mine" and "Colleague" load with a single button.
+- **JSON fixture profiles** – add a new fixture by dropping a file into the `Profiles` folder, no rebuild needed. Format: [Docs/PROFILES.md](Docs/PROFILES.md).
+- **Rig as a file** – export / import the whole rig (fixtures, addresses, calibration, placement, custom profiles) for a colleague or another PC.
+- **Any number of fixtures** – add, remove and reorder fixtures, custom placement of each fixture in the scene.
 - **Automatic updates** – the Windows version downloads new releases from GitHub by itself.
 - **Meta Quest 3** – native VR app: in-headset menu, controllers, stick locomotion and teleport, optional passthrough and scanned room with DJ table placement.
 
@@ -74,10 +80,10 @@ A 3D DMX lighting visualiser for **SoundSwitch**. It receives Art-Net straight f
 | BeamZ DerbyStrobe | 6ch |
 | BeamZ MHL820 Double Helix | 18ch |
 
-Channel layouts follow the profiles in the SoundSwitch fixture library.
+Channel layouts follow the profiles in the SoundSwitch fixture library. More fixtures can be added with a custom profile (see [Docs/PROFILES.md](Docs/PROFILES.md)).
 
 ### Installation
-**Windows:** download `DMXVisualiser-vX.Y.Z-win64.zip` from [Releases](../../releases), unzip and run `DMXVisualiser.exe`. The app is portable – settings (`settings.json`) are stored in its folder; move the whole folder, the exe alone does not run. The PC must be on the same network as SoundSwitch (or the same PC).
+**Windows:** download `DMXVisualiser-vX.Y.Z-win64.zip` from [Releases](../../releases), unzip and run `DMXVisualiser.exe`. The app is portable – settings (`settings.json`), custom profiles (`Profiles`) and rigs (`Rigs`) live in its folder; move the whole folder, the exe alone does not run. The PC must be on the same network as SoundSwitch (or the same PC).
 
 **Quest 3:** enable developer mode on the Quest and install the APK from [Releases](../../releases):
 ```

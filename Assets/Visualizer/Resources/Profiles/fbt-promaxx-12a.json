@@ -1,0 +1,17 @@
+{
+  "id": "fbt-promaxx-12a",
+  "name": "ProMaxX 12A (bílá lycra na stativu)",
+  "manufacturer": "FBT",
+  "kind": "prop",
+  "placement": "speaker",
+  "prop": {
+    "type": "speaker",
+    "size": [
+      0.39,
+      0.62,
+      0.35
+    ],
+    "standHeight": 1.55,
+    "lycra": "#ebebe6"
+  }
+}

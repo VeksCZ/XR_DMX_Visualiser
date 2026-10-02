@@ -18,21 +18,13 @@ public class SceneBuilder : MonoBehaviour
     public float ceiling = 4f;
 
     [Header("Rig")]
-    public float gigbarHeight = 2.2f;
     [Tooltip("Střed parketu – sem míří SS pozice Stage Center (kalibrace hlav)")]
     public Vector3 danceFloorCenter = Vector3.zero;
-    public int tubeSegments = 8; // 40ch mód; 80ch = 16
 
-    [HideInInspector] public GigBar gigbar;
-    [HideInInspector] public PixelTube[] tubes = new PixelTube[4];
-    [HideInInspector] public ParLight[] uplights = new ParLight[4];
-    [HideInInspector] public MovingHead[] pockets = new MovingHead[2];
-    // Kolegova rampa nad stolem
-    [HideInInspector] public ParLight[] blackPars = new ParLight[2];
-    [HideInInspector] public DerbyStrobe[] derbyStrobes = new DerbyStrobe[2];
-    [HideInInspector] public Helix[] helixes = new Helix[2];
+    // Světla a vybavení postavené podle sestavy (pořadí = pořadí v seznamu)
+    [HideInInspector] public readonly System.Collections.Generic.List<FixtureInstance> instances = new System.Collections.Generic.List<FixtureInstance>();
+    Transform rig;
     Transform truss;
-    Transform gigbarTripod;
 
     float backZ;
 
@@ -40,7 +32,8 @@ public class SceneBuilder : MonoBehaviour
     {
         VisUtil.Init(beamShader, emissiveShader, litShader);
         BuildRoom();
-        BuildRig();
+        rig = new GameObject("Rig").transform;
+        BuildColleagueTruss(rig);
         SetupCamera();
         if (GetComponent<VisualizerMenu>() == null) gameObject.AddComponent<VisualizerMenu>();
     }
@@ -120,6 +113,8 @@ public class SceneBuilder : MonoBehaviour
         foreach (var f in houseFixtures) VisUtil.SetColor(f, warm, v * 8f);
         // rozptýlené světlo odražené od stěn a stropu, aby nebyly úplně černé kouty ani strop
         RenderSettings.ambientLight = darkAmbient + warm * (v * 0.6f);
+        // nasvícení mléčných difuzorů (tuby) světlem v sále – lineární hodnota, shader Visualizer/Emissive
+        Shader.SetGlobalVector("_RoomLight", (Vector4)(warm.linear * (v * 1.2f)));
     }
 
     void Update()
@@ -165,34 +160,184 @@ public class SceneBuilder : MonoBehaviour
         var markMat = VisUtil.LitMat(new Color(0.25f, 0.25f, 0.25f));
         VisUtil.Prim(PrimitiveType.Cube, room, fc, new Vector3(0.4f, 0.002f, 0.03f), markMat);
         VisUtil.Prim(PrimitiveType.Cube, room, fc, new Vector3(0.03f, 0.002f, 0.4f), markMat);
-
-        BuildTables(room);
     }
 
-    // ---- DJ stoly (bez DMX, zobrazují se podle seznamu) ----
-    // ADJ Pro Event Table II: 127 × 61 cm, deska 115,5 cm, rám z trubek Ø32 mm, bílá lycra (scrim) dokola.
-    // Vonyx DB3 Pro: 146 × 73 cm, deska ~93 cm, hliníkový rám s černou lycrou na čele a bocích.
-    [HideInInspector] public Transform eventTable, djBooth;
-    public static readonly Vector3 EventTableSize = new Vector3(1.27f, 1.155f, 0.61f);
+    // ================= Sestava (světla a vybavení podle profilů) =================
+    // ADJ Pro Event Table II / Vonyx DB3 Pro – rozměry ze profilů; rampa kolegy vychází z rozměrů DB3
     public static readonly Vector3 BoothSize = new Vector3(1.46f, 0.93f, 0.73f);
     float TableZ => backZ + 2f;   // střed stolu
+    const float TrussH = 2.3f, TrussProf = 0.04f, TrussGap = 0.25f;
+    float TrussZ => TableZ - BoothSize.z * 0.5f + 0.03f;
 
-    void BuildTables(Transform room)
+    // Postaví celou sestavu znovu (po změně seznamu, režimu nebo umístění)
+    public void Rebuild(System.Collections.Generic.List<FixtureEntry> list)
     {
-        var white = LycraWhite;   // stejná látka jako lycra na stativech repro
-        var black = VisUtil.LitMat(new Color(0.03f, 0.03f, 0.035f));
-        eventTable = Table(room, "ADJ Pro Event Table II", EventTableSize, white, VisUtil.BodyMat);
-        djBooth = Table(room, "Vonyx DB3 Pro", BoothSize, black, VisUtil.BodyMat);
-        eventTable.gameObject.SetActive(false);
-        djBooth.gameObject.SetActive(false);
+        foreach (var fi in instances) if (fi.root != null) Destroy(fi.root.gameObject);
+        instances.Clear();
+        var slotCount = new System.Collections.Generic.Dictionary<string, int>();
+        for (int i = 0; i < list.Count; i++)
+        {
+            var e = list[i];
+            var p = e != null ? e.Profile : null;
+            var fi = new FixtureInstance { entry = e, profile = p, index = i };
+            instances.Add(fi);
+            if (p == null) continue;    // neznámý profil – nastavení ukáže varování
+            fi.slot = string.IsNullOrEmpty(p.placement) ? "floor" : p.placement;
+            slotCount.TryGetValue(fi.slot, out int n);
+            fi.slotIndex = n;
+            slotCount[fi.slot] = n + 1;
+
+            fi.root = new GameObject(string.IsNullOrEmpty(e.name) ? p.name : e.name).transform;
+            fi.root.SetParent(rig, false);
+            fi.body = fi.root;
+            if (p.IsProp) BuildProp(fi);
+            else if (!p.IsHazer)
+            {
+                if (fi.slot == "stand")
+                {
+                    // světlo na stativu s trojnožkou (GigBar): umístění = pata stativu
+                    float h = p.mountHeight > 0f ? p.mountHeight : 2.2f;
+                    Tripod(fi.root, Vector3.zero, h);
+                    fi.body = new GameObject("Body").transform;
+                    fi.body.SetParent(fi.root, false);
+                    fi.body.localPosition = new Vector3(0, h, 0);
+                }
+                FixtureFactory.Build(fi);
+            }
+            fi.root.gameObject.SetActive(!e.hidden);
+        }
+        Layout();
     }
 
-    // Stůl potažený lycrou: čelo a boky z látky (kousek nad zemí), nahoře černá deska, vzadu otevřené
-    Transform Table(Transform parent, string name, Vector3 size, Material lycra, Material top)
+    public void SetVisible(int index, bool visible)
     {
-        var t = new GameObject(name).transform;
-        t.SetParent(parent, false);
-        t.localPosition = new Vector3(0, 0, TableZ);
+        if (index >= 0 && index < instances.Count && instances[index].root != null)
+            instances[index].root.gameObject.SetActive(visible);
+    }
+
+    // Po změně viditelnosti: hlavy na rohy zobrazeného stolu, helixy na střed rampy, rampa jen když je na ní světlo
+    public void FinishVisibility() => Layout();
+
+    void Layout()
+    {
+        Vector3 table = new Vector3(1.8f, 0.9f, 0.7f);
+        foreach (var fi in instances)
+            if (fi.Visible && fi.profile != null && fi.profile.IsProp && fi.profile.prop.type == "table")
+            { table = ProfileUtil.V(fi.profile.prop.size, table); break; }
+        int centerCount = 0;
+        foreach (var fi in instances) if (fi.Visible && fi.slot == "trussCenter" && !fi.entry.customPos) centerCount++;
+
+        bool trussUsed = false;
+        int ci = 0;
+        foreach (var fi in instances)
+        {
+            if (fi.root == null) continue;
+            if (fi.entry.customPos)
+            {
+                fi.root.localPosition = fi.entry.pos;
+                fi.root.localEulerAngles = fi.entry.rot;
+                continue;
+            }
+            if (fi.Visible && fi.slot.StartsWith("truss")) trussUsed = true;
+            int k = fi.slot == "trussCenter" ? (fi.Visible ? ci++ : 0) : fi.slotIndex;
+            Placement(fi.slot, k, table, centerCount, out Vector3 pos, out Vector3 rot);
+            fi.root.localPosition = pos;
+            fi.root.localEulerAngles = rot;
+        }
+        if (truss != null) truss.gameObject.SetActive(trussUsed);
+    }
+
+    // Výchozí místa: stůl – tuba – repro – tuba na obou stranách, uplighty u zadní stěny, kolegova rampa nad boothem
+    void Placement(string slot, int i, Vector3 table, int centerCount, out Vector3 pos, out Vector3 rot)
+    {
+        rot = Vector3.zero;
+        float s = i % 2 == 0 ? -1f : 1f;
+        switch (slot)
+        {
+            case "stand":
+                pos = new Vector3(i == 0 ? 0f : (i % 2 == 1 ? -1f : 1f) * 3.2f * ((i + 1) / 2), 0f, backZ + 1.3f);
+                break;
+            case "tableCorner":
+                pos = new Vector3(s * (table.x * 0.5f - 0.1f - (i / 2) * 0.3f), table.y, TableZ + table.z * 0.5f - 0.1f);
+                break;
+            case "tube":
+            {
+                float[] xs = { -2.6f, -1.0f, 1.0f, 2.6f };
+                pos = new Vector3(i < 4 ? xs[i] : s * (2.6f + 1.6f * ((i - 2) / 2)), 0.25f, backZ + 1.6f);
+                break;
+            }
+            case "uplight":
+            {
+                float[] xs = { -5.5f, -3.5f, 3.5f, 5.5f, -1.5f, 1.5f, -4.5f, 4.5f, -2.5f, 2.5f, -6.5f, 6.5f };
+                pos = new Vector3(xs[i % xs.Length], 0.21f, backZ + 0.35f);   // čočka nahoře, těleso stojí na zemi
+                rot = new Vector3(-100f, 0, 0);                               // nahoru, mírně ke stěně
+                break;
+            }
+            case "trussTop":
+            {
+                float[] xs = { -0.6f, 0.6f, -0.2f, 0.2f };
+                pos = new Vector3(xs[i % 4], TrussH + 0.07f, TrussZ);       // derby nahoře na krajích, míří dopředu
+                rot = new Vector3(15f, 0, 0);
+                break;
+            }
+            case "trussHang":
+            {
+                float[] xs = { -0.42f, 0.42f, -0.15f, 0.15f };
+                pos = new Vector3(xs[i % 4], TrussH - (TrussGap + TrussProf) - 0.13f, TrussZ + 0.02f);  // pary visí pod příčkou
+                rot = new Vector3(40f, 0, 0);
+                break;
+            }
+            case "trussCenter":
+                pos = new Vector3((i - (Mathf.Max(1, centerCount) - 1) * 0.5f) * 0.5f, TrussH, TrussZ);   // 1 helix uprostřed, 2 vedle sebe
+                break;
+            case "table":
+                pos = new Vector3(0, 0, TableZ);
+                break;
+            case "speaker":
+                pos = new Vector3(s * (1.8f + 1.0f * (i / 2)), 0, backZ + 1.8f);
+                rot = new Vector3(0, -s * 12f, 0);   // natočit mírně k parketu
+                break;
+            default:
+                pos = new Vector3(-3f + 0.6f * i, 0, backZ + 2.8f);
+                break;
+        }
+    }
+
+    // Kolegova rampa (černá): dvě kulaté stativové tyče jako prodloužení zadních nohou DJ stolku,
+    // nahoře dvě hranaté tyče nad sebou spojené 4 svislými výztuhami. Zobrazí se, jen když je na ní světlo.
+    void BuildColleagueTruss(Transform parent)
+    {
+        float legX = BoothSize.x * 0.5f - 0.03f;
+        float tz = TrussZ, h = TrussH, prof = TrussProf, gap = TrussGap;
+        float barLow = h - gap;
+        truss = new GameObject("Truss (kolega)").transform;
+        truss.SetParent(parent, false);
+        var m = VisUtil.BodyMat;
+        foreach (float x in new[] { -legX, legX })
+            VisUtil.Prim(PrimitiveType.Cylinder, truss, new Vector3(x, h * 0.5f, tz), new Vector3(0.035f, h * 0.5f, 0.035f), m); // stativová tyč
+        float len = 2 * legX + 0.1f;
+        VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(0, h - prof * 0.5f, tz), new Vector3(len, prof, prof), m);        // horní tyč
+        VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(0, barLow - prof * 0.5f, tz), new Vector3(len, prof, prof), m);   // spodní tyč
+        foreach (float x in new[] { -0.66f * legX, -0.22f * legX, 0.22f * legX, 0.66f * legX })                               // výztuhy
+            VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(x, barLow + gap * 0.5f - prof * 0.5f, tz), new Vector3(0.025f, gap - prof, 0.025f), m);
+        float bar = gap + prof;
+        foreach (float x in new[] { -0.42f, 0.42f })                                                                         // třmeny parů
+            VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(x, h - bar - 0.04f, tz), new Vector3(0.22f, 0.02f, 0.04f), m);
+        truss.gameObject.SetActive(false);
+    }
+
+    // ---- Vybavení bez DMX ----
+    void BuildProp(FixtureInstance fi)
+    {
+        var sp = fi.profile.prop;
+        var size = ProfileUtil.V(sp.size, new Vector3(1.2f, 0.9f, 0.6f));
+        if (sp.type == "speaker") Speaker(fi.root, size, sp.standHeight > 0f ? sp.standHeight : 1.5f, sp.lycra);
+        else Table(fi.root, size, ProfileUtil.Mat(string.IsNullOrEmpty(sp.lycra) ? "#080809" : sp.lycra), ProfileUtil.Mat(sp.top));
+    }
+
+    // Stůl potažený lycrou: čelo a boky z látky (kousek nad zemí), nahoře deska, vzadu otevřené
+    void Table(Transform t, Vector3 size, Material lycra, Material top)
+    {
         float w = size.x, h = size.y, d = size.z, th = 0.01f, low = 0.02f;
         float ph = h - 0.03f - low;          // výška lycry
         float py = low + ph * 0.5f;
@@ -203,230 +348,20 @@ public class SceneBuilder : MonoBehaviour
         // zadní nohy rámu (jsou vidět z pohledu DJ)
         foreach (float x in new[] { -w * 0.5f + 0.03f, w * 0.5f - 0.03f })
             VisUtil.Prim(PrimitiveType.Cylinder, t, new Vector3(x, h * 0.5f, -d * 0.5f + 0.03f), new Vector3(0.032f, h * 0.5f, 0.032f), VisUtil.BodyMat);
-        return t;
     }
 
-    void BuildRig()
+    // Repro na trojnožce; s lycrou = látkový scrim přes stativ (repro nad ní zůstává vidět)
+    void Speaker(Transform t, Vector3 size, float standH, string lycraColor)
     {
-        var rig = new GameObject("Rig").transform;
-
-        // Gigbar na stativu za DJ stolkem
-        float gz = backZ + 1.3f;
-        gigbarTripod = Tripod(rig, new Vector3(0, 0, gz), gigbarHeight);
-        gigbar = new GameObject("GigBAR Move + ILS").AddComponent<GigBar>();
-        gigbar.transform.SetParent(rig, false);
-        gigbar.transform.localPosition = new Vector3(0, gigbarHeight, gz);
-        gigbar.Build();
-
-        // 2× ADJ Pocket Pro na předních rozích DJ stolku (stolek: střed backZ+2, 1,8 × 0,9 × 0,7 m)
-        float tableFront = backZ + 2f + 0.35f;
-        float[] pxs = { -0.78f, 0.78f };
-        for (int i = 0; i < 2; i++)
-        {
-            var go = new GameObject(i == 0 ? "Pocket Pro L" : "Pocket Pro R");
-            go.transform.SetParent(rig, false);
-            go.transform.localPosition = new Vector3(pxs[i], 0.9f, tableFront - 0.1f);
-            var h = go.AddComponent<MovingHead>();
-            h.beamAngle = 15f;          // ADJ Pocket Pro: 25 W, 15°
-            h.tiltRange = 230f;
-            h.lightIntensity = 130f;
-            h.beamBrightness = 1.5f;
-            h.beamLength = 10f;
-            h.Build();
-            pockets[i] = h;
-        }
-
-        // 4 tuby po stranách stolku, svisle na nízkých stojánkách
-        // rozestavení po stranách: stůl – tuba – repro – tuba (na obou stranách stejně)
-        float[] tx = { -2.6f, -1.0f, 1.0f, 2.6f };
-        for (int i = 0; i < 4; i++)
-        {
-            var go = new GameObject("Tube " + (i + 1));
-            go.transform.SetParent(rig, false);
-            go.transform.localPosition = new Vector3(tx[i], 0.25f, backZ + 1.6f);
-            // černý stojánek – malá trojnožka – a krabička s ovládáním a displejem pod tubou
-            VisUtil.Prim(PrimitiveType.Cylinder, go.transform, new Vector3(0, -0.15f, 0), new Vector3(0.025f, 0.05f, 0.025f), VisUtil.BodyMat);
-            for (int k = 0; k < 3; k++)
-            {
-                var dir = Quaternion.Euler(0, k * 120f, 0) * Vector3.forward;
-                var leg = VisUtil.Prim(PrimitiveType.Cylinder, go.transform, dir * 0.06f + Vector3.up * -0.21f, new Vector3(0.012f, 0.07f, 0.012f), VisUtil.BodyMat);
-                leg.localRotation = Quaternion.FromToRotation(Vector3.up, (Vector3.up * 0.08f - dir * 0.11f).normalized);
-            }
-            VisUtil.Prim(PrimitiveType.Cube, go.transform, new Vector3(0, -0.05f, 0), new Vector3(0.06f, 0.1f, 0.06f), VisUtil.BodyMat);
-            var t = go.AddComponent<PixelTube>();
-            t.segments = Mathf.Max(16, tubeSegments); // jemnější dělení kvůli efektům tuby (40ch se roztáhne)
-            t.Build();
-            tubes[i] = t;
-        }
-
-        // 4 battery pary jako uplight na zadní stěnu
-        float[] ux = { -5.5f, -3.5f, 3.5f, 5.5f };
-        for (int i = 0; i < 4; i++)
-        {
-            var go = new GameObject("BatteryPar " + (i + 1));
-            go.transform.SetParent(rig, false);
-            go.transform.localPosition = new Vector3(ux[i], 0.21f, backZ + 0.35f);   // čočka nahoře, těleso stojí na zemi
-            go.transform.localEulerAngles = new Vector3(-100f, 0, 0); // nahoru, mírně ke stěně
-            var p = go.AddComponent<ParLight>();
-            p.housing = ParLight.Housing.Box;
-            p.boxDims = new Vector3(0.11f, 0.11f, 0.2f);   // čínský battery par: užší a vyšší těleso
-            p.beamAngle = 25f;   // odhad, uprav podle manuálu
-            p.fieldAngle = 40f;
-            p.beamLength = 5f;
-            p.size = 0.1f;
-            p.Build();
-            uplights[i] = p;
-        }
-
-        BuildColleagueTruss(rig);
-        BuildSpeakers(rig);
-    }
-
-    // Kolegova rampa (černá): dvě kulaté stativové tyče jako prodloužení zadních nohou DJ stolku,
-    // nahoře dvě hranaté tyče nad sebou spojené 4 svislými výztuhami.
-    // Derby nahoře na krajích, pary visí pod spodní tyčí blíž ke středu, helixy uprostřed nahoře.
-
-    void BuildColleagueTruss(Transform rig)
-    {
-        const float h = 2.3f, prof = 0.04f, gap = 0.25f;   // výška horní tyče, profil 4×4 cm, rozteč tyčí
-        float legX = BoothSize.x * 0.5f - 0.03f;            // v zadních nohách Vonyx DB3
-        float tz = TableZ - BoothSize.z * 0.5f + 0.03f;
-        float barLow = h - gap;
-        truss = new GameObject("Truss (kolega)").transform;
-        truss.SetParent(rig, false);
-        var m = VisUtil.BodyMat;
-        foreach (float x in new[] { -legX, legX })
-            VisUtil.Prim(PrimitiveType.Cylinder, truss, new Vector3(x, h * 0.5f, tz), new Vector3(0.035f, h * 0.5f, 0.035f), m); // stativová tyč
-        float len = 2 * legX + 0.1f;
-        VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(0, h - prof * 0.5f, tz), new Vector3(len, prof, prof), m);        // horní tyč
-        VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(0, barLow - prof * 0.5f, tz), new Vector3(len, prof, prof), m);   // spodní tyč
-        foreach (float x in new[] { -0.66f * legX, -0.22f * legX, 0.22f * legX, 0.66f * legX })                                                                  // výztuhy
-            VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(x, barLow + gap * 0.5f - prof * 0.5f, tz), new Vector3(0.025f, gap - prof, 0.025f), m);
-        const float bar = gap + prof;   // pary visí pod spodní tyčí
-
-        for (int i = 0; i < 2; i++)
-        {
-            float s = i == 0 ? -1f : 1f;
-            // derby nahoře na krajích, míří dopředu na parket (lehce dolů)
-            var dgo = new GameObject(i == 0 ? "DerbyStrobe L" : "DerbyStrobe R");
-            dgo.transform.SetParent(truss, false);
-            dgo.transform.localPosition = new Vector3(s * 0.6f, h + 0.07f, tz);
-            dgo.transform.localEulerAngles = new Vector3(15f, 0, 0);
-            var ds = dgo.AddComponent<DerbyStrobe>();
-            ds.Build();
-            if (i == 1) ds.derby.rotationSpeed = -ds.derby.rotationSpeed;
-            derbyStrobes[i] = ds;
-
-            // pary visí pod příčkou blíž ke středu, míří dolů před stolek
-            var pgo = new GameObject(i == 0 ? "Black Par L" : "Black Par R");
-            pgo.transform.SetParent(truss, false);
-            pgo.transform.localPosition = new Vector3(s * 0.42f, h - bar - 0.13f, tz + 0.02f);
-            pgo.transform.localEulerAngles = new Vector3(40f, 0, 0);
-            VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(s * 0.42f, h - bar - 0.04f, tz), new Vector3(0.22f, 0.02f, 0.04f), VisUtil.BodyMat); // třmen
-            var p = pgo.AddComponent<ParLight>();
-            p.housing = ParLight.Housing.Round;
-            p.size = 0.19f;
-            p.beamAngle = 25f;
-            p.fieldAngle = 40f;
-            p.beamLength = 7f;
-            p.lightIntensity = 30f;
-            p.Build();
-            blackPars[i] = p;
-
-            // helix(y) uprostřed nahoře na příčce
-            var hgo = new GameObject("Helix " + (i + 1));
-            hgo.transform.SetParent(truss, false);
-            hgo.transform.localPosition = new Vector3(i == 0 ? 0f : 0.35f, h, tz);
-            var hx = hgo.AddComponent<Helix>();
-            hx.Build();
-            helixes[i] = hx;
-        }
-    }
-
-    // Skrýt všechna světla – pak je VisualizerMenu podle patche zase zapne (co v patchi není, nesvítí ve scéně)
-    public void HideAllFixtures()
-    {
-        if (gigbar != null) gigbar.gameObject.SetActive(false);
-        if (gigbarTripod != null) gigbarTripod.gameObject.SetActive(false);
-        foreach (var x in pockets) if (x != null) x.gameObject.SetActive(false);
-        foreach (var x in uplights) if (x != null) x.gameObject.SetActive(false);
-        foreach (var x in tubes) if (x != null) x.gameObject.SetActive(false);
-        foreach (var x in blackPars) if (x != null) x.gameObject.SetActive(false);
-        foreach (var x in derbyStrobes) if (x != null) x.gameObject.SetActive(false);
-        foreach (var x in helixes) if (x != null) x.gameObject.SetActive(false);
-        if (eventTable != null) eventTable.gameObject.SetActive(false);
-        if (djBooth != null) djBooth.gameObject.SetActive(false);
-        foreach (var x in speakers12) if (x != null) x.gameObject.SetActive(false);
-        foreach (var x in speakers14) if (x != null) x.gameObject.SetActive(false);
-    }
-
-    // Hlavy Pocket Pro na předních rozích zobrazeného stolu (Event Table / DB3), jinak výchozí místo
-    void PlacePockets()
-    {
-        Vector3 size = new Vector3(1.8f, 0.9f, 0.7f);
-        if (eventTable != null && eventTable.gameObject.activeSelf) size = EventTableSize;
-        else if (djBooth != null && djBooth.gameObject.activeSelf) size = BoothSize;
-        for (int i = 0; i < pockets.Length; i++)
-        {
-            if (pockets[i] == null) continue;
-            float s = i == 0 ? -1f : 1f;
-            pockets[i].transform.localPosition = new Vector3(s * (size.x * 0.5f - 0.1f), size.y, TableZ + size.z * 0.5f - 0.1f);
-        }
-    }
-
-    // Rampa se ukáže, jen když na ní něco je; jeden helix stojí přesně uprostřed, dva vedle sebe
-    public void FinishVisibility()
-    {
-        PlacePockets();
-        if (truss == null) return;
-        bool any = false;
-        foreach (var x in blackPars) any |= x != null && x.gameObject.activeSelf;
-        foreach (var x in derbyStrobes) any |= x != null && x.gameObject.activeSelf;
-        int hc = 0;
-        foreach (var x in helixes) if (x != null && x.gameObject.activeSelf) hc++;
-        any |= hc > 0;
-        for (int i = 0; i < truss.childCount; i++)
-        {
-            var c = truss.GetChild(i);
-            if (c.GetComponent<ParLight>() == null && c.GetComponent<DerbyStrobe>() == null && c.GetComponent<Helix>() == null)
-                c.gameObject.SetActive(any);
-        }
-        if (helixes[0] != null) helixes[0].transform.localPosition = new Vector3(hc > 1 ? -0.25f : 0f, helixes[0].transform.localPosition.y, helixes[0].transform.localPosition.z);
-        if (helixes[1] != null) helixes[1].transform.localPosition = new Vector3(0.25f, helixes[1].transform.localPosition.y, helixes[1].transform.localPosition.z);
-    }
-
-    // ---- Reproduktory ----
-    // Moje: 2× FBT ProMaxX 12A na trojnožce s bílou lycrou (scrim přes stativ, repro nad ní zůstává vidět).
-    // Kolega: 2× FBT ProMaxX 14A na černé trojnožce bez lycry. Rozměry přibližné (š × v × h).
-    [HideInInspector] public Transform[] speakers12 = new Transform[2], speakers14 = new Transform[2];
-
-    void BuildSpeakers(Transform rig)
-    {
-        float z = backZ + 1.8f, x = 1.8f;   // mezi tubami (±1,0 a ±2,6)
-        for (int i = 0; i < 2; i++)
-        {
-            float s = i == 0 ? -1f : 1f;
-            speakers12[i] = Speaker(rig, new Vector3(s * x, 0, z), s, new Vector3(0.39f, 0.62f, 0.35f), 1.55f, true);
-            speakers14[i] = Speaker(rig, new Vector3(s * x, 0, z), s, new Vector3(0.43f, 0.70f, 0.40f), 1.5f, false);
-            speakers12[i].gameObject.SetActive(false);
-            speakers14[i].gameObject.SetActive(false);
-        }
-    }
-
-    Transform Speaker(Transform parent, Vector3 pos, float side, Vector3 size, float standH, bool lycra)
-    {
-        var t = Tripod(parent, pos, standH);
-        // natočit mírně k parketu
-        t.localRotation = Quaternion.Euler(0, -side * 12f, 0);
-        var box = new GameObject("FBT ProMaxX").transform;
+        Tripod(t, Vector3.zero, standH);
+        var box = new GameObject("Box").transform;
         box.SetParent(t, false);
         box.localPosition = new Vector3(0, standH + size.y * 0.5f, 0);
         VisUtil.Prim(PrimitiveType.Cube, box, Vector3.zero, size, VisUtil.BodyMat);
-        // kovová mřížka zepředu (lehce světlejší) a logo pás
-        var grille = VisUtil.LitMat(new Color(0.11f, 0.11f, 0.12f));
-        VisUtil.Prim(PrimitiveType.Cube, box, new Vector3(0, -size.y * 0.06f, size.z * 0.5f + 0.003f), new Vector3(size.x * 0.9f, size.y * 0.82f, 0.006f), grille);
-        if (!lycra) return t;
-        // Bílá lycra: tři trojúhelníkové stěny od horní části tyče k patkám trojnožky
+        // kovová mřížka zepředu (lehce světlejší)
+        VisUtil.Prim(PrimitiveType.Cube, box, new Vector3(0, -size.y * 0.06f, size.z * 0.5f + 0.003f), new Vector3(size.x * 0.9f, size.y * 0.82f, 0.006f), ProfileUtil.Mat("#1c1c1f"));
+        if (string.IsNullOrEmpty(lycraColor)) return;
+        // tři trojúhelníkové stěny od horní části tyče k patkám trojnožky
         var go = new GameObject("Lycra");
         go.transform.SetParent(t, false);
         var top = new Vector3(0, standH - 0.03f, 0);
@@ -447,11 +382,8 @@ public class SceneBuilder : MonoBehaviour
         mesh.SetTriangles(tri, 0);
         mesh.RecalculateNormals();
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
-        go.AddComponent<MeshRenderer>().sharedMaterial = LycraWhite;
-        return t;
+        go.AddComponent<MeshRenderer>().sharedMaterial = ProfileUtil.Mat(lycraColor);
     }
-    static Material lycraMat;
-    static Material LycraWhite => lycraMat != null ? lycraMat : (lycraMat = VisUtil.LitMat(new Color(0.92f, 0.92f, 0.9f)));
 
     Transform Tripod(Transform parent, Vector3 pos, float h)
     {
@@ -467,33 +399,6 @@ public class SceneBuilder : MonoBehaviour
             leg.localRotation = Quaternion.FromToRotation(Vector3.up, (Vector3.up * 0.7f - dir * 0.6f).normalized);
         }
         return t;
-    }
-
-    // Zapnutí / vypnutí světla ve scéně (index = pořadí světla daného typu)
-    public void SetVisible(FixtureType type, int index, bool visible)
-    {
-        GameObject go = null;
-        switch (type)
-        {
-            case FixtureType.GigBarMoveILS:
-                if (index == 0 && gigbar != null)
-                {
-                    gigbar.gameObject.SetActive(visible);
-                    if (gigbarTripod != null) gigbarTripod.gameObject.SetActive(visible);
-                }
-                return;
-            case FixtureType.PocketPro: if (index < pockets.Length && pockets[index] != null) go = pockets[index].gameObject; break;
-            case FixtureType.BatteryPar: if (index < uplights.Length && uplights[index] != null) go = uplights[index].gameObject; break;
-            case FixtureType.PixelTube: if (index < tubes.Length && tubes[index] != null) go = tubes[index].gameObject; break;
-            case FixtureType.BlackPar: if (index < blackPars.Length && blackPars[index] != null) go = blackPars[index].gameObject; break;
-            case FixtureType.DerbyStrobe: if (index < derbyStrobes.Length && derbyStrobes[index] != null) go = derbyStrobes[index].gameObject; break;
-            case FixtureType.DoubleHelix: if (index < helixes.Length && helixes[index] != null) go = helixes[index].gameObject; break;
-            case FixtureType.EventTable: if (index == 0 && eventTable != null) go = eventTable.gameObject; break;
-            case FixtureType.DJBooth: if (index == 0 && djBooth != null) go = djBooth.gameObject; break;
-            case FixtureType.Speaker12: if (index < speakers12.Length && speakers12[index] != null) go = speakers12[index].gameObject; break;
-            case FixtureType.Speaker14: if (index < speakers14.Length && speakers14[index] != null) go = speakers14[index].gameObject; break;
-        }
-        if (go != null) go.SetActive(visible);
     }
 
     void SetupCamera()

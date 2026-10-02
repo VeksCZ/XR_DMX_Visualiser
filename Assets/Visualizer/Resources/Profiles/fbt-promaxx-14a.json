@@ -1,0 +1,16 @@
+{
+  "id": "fbt-promaxx-14a",
+  "name": "ProMaxX 14A (černý stativ)",
+  "manufacturer": "FBT",
+  "kind": "prop",
+  "placement": "speaker",
+  "prop": {
+    "type": "speaker",
+    "size": [
+      0.43,
+      0.7,
+      0.4
+    ],
+    "standHeight": 1.5
+  }
+}

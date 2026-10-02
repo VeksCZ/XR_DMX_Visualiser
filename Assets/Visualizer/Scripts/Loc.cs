@@ -44,7 +44,7 @@ public static class Loc
         { "tabLights", new[] { "Světla", "Fixtures" } },
         { "tabArtNet", new[] { "Art-Net", "Art-Net" } },
         { "tabQuest", new[] { "Quest", "Quest" } },
-        { "propHint", new[] { "Vybavení bez DMX – jen se zobrazuje ve scéně. Hlavy Pocket Pro se posadí na rohy zobrazeného stolu.", "Equipment without DMX – shown in the scene only. Pocket Pro heads sit on the corners of the shown table." } },
+        { "propHint", new[] { "Vybavení bez DMX – jen se zobrazuje ve scéně. Hlavy na stole (Pocket Pro) se posadí na rohy zobrazeného stolu.", "Equipment without DMX – shown in the scene only. Pocket Pro heads sit on the corners of the shown table." } },
         { "qTitle", new[] { "Meta Quest – aplikace a nastavení", "Meta Quest – app and settings" } },
         { "qHint", new[] {
             "Připoj Quest kabelem USB (vývojářský režim zapnutý) a v brýlích potvrď povolení USB ladění.",
@@ -87,8 +87,8 @@ public static class Loc
         { "resetLights", new[] { "Obnovit výchozí světla", "Restore default fixtures" } },
         { "resetLightsDone", new[] { "Načtena výchozí světla – potvrď OK nebo Použít", "Default fixtures loaded – confirm with OK or Apply" } },
         { "patchHint", new[] {
-            "Zatržítkem světlo zapneš / vypneš ve scéně. Klikni na světlo a vpravo nastav adresu jako v SoundSwitchi.",
-            "Use the checkbox to show / hide a fixture in the scene. Click a fixture to set its address (as in SoundSwitch) on the right." } },
+            "Zatržítkem světlo zapneš / vypneš ve scéně. Klikni na světlo a vpravo nastav adresu jako v SoundSwitchi. „+ Přidat“ přidá další světlo podle profilu.",
+            "Use the checkbox to show / hide a fixture in the scene. Click a fixture to set its address (as in SoundSwitch) on the right. \"+ Add\" adds another fixture from a profile." } },
         { "address", new[] { "Adresa", "Address" } },
         { "name", new[] { "Název", "Name" } },
         { "channelMode", new[] { "Režim kanálů", "Channel mode" } },
@@ -122,6 +122,40 @@ public static class Loc
         { "overlap", new[] { "⚠ Překrývá se s: {0}", "⚠ Overlaps with: {0}" } },
         { "errUniverse", new[] { "{0}: universe musí být 1–16", "{0}: universe must be 1–16" } },
         { "errAddress", new[] { "{0}: adresa musí být 1–{1}", "{0}: address must be 1–{1}" } },
+        { "errPos", new[] { "{0}: neplatné umístění (čísla v metrech a stupních)", "{0}: invalid placement (numbers in metres and degrees)" } },
+        { "addFixture", new[] { "+ Přidat", "+ Add" } },
+        { "removeFixture", new[] { "Odebrat", "Remove" } },
+        { "pickProfile", new[] { "Přidat světlo / vybavení:", "Add fixture / equipment:" } },
+        { "rigFile", new[] { "Sestava jako soubor:", "Rig as a file:" } },
+        { "rigExport", new[] { "Exportovat", "Export" } },
+        { "rigImport", new[] { "Importovat…", "Import…" } },
+        { "rigFolder", new[] { "Otevřít složku sestav", "Open rigs folder" } },
+        { "rigExported", new[] { "Sestava uložena: {0}", "Rig saved: {0}" } },
+        { "rigImported", new[] { "Načtena sestava {0} – potvrď OK nebo Použít", "Rig {0} loaded – confirm with OK or Apply" } },
+        { "rigImportErr", new[] { "Sestavu nejde načíst: {0}", "Cannot load rig: {0}" } },
+        { "rigNone", new[] { "Ve složce Rigs zatím nejsou žádné sestavy.", "There are no rigs in the Rigs folder yet." } },
+        { "rigShareHint", new[] {
+            "Soubor sestavy obsahuje světla, adresy, kalibraci, umístění i vlastní profily – stačí ho poslat a druhý si ho importuje.",
+            "A rig file contains the fixtures, addresses, calibration, placement and custom profiles – send it and the other person imports it." } },
+        { "profiles", new[] { "Profily světel:", "Fixture profiles:" } },
+        { "profilesFolder", new[] { "Složka profilů", "Profiles folder" } },
+        { "profilesReload", new[] { "Načíst znovu", "Reload" } },
+        { "profilesReloaded", new[] { "Načteno {0} profilů", "{0} profiles loaded" } },
+        { "profileErrors", new[] { "⚠ Chyby v profilech: {0}", "⚠ Profile errors: {0}" } },
+        { "profileSource", new[] { "Profil: {0}", "Profile: {0}" } },
+        { "srcBuiltin", new[] { "vestavěný", "built-in" } },
+        { "srcEmbedded", new[] { "uložený v sestavě", "stored in the rig" } },
+        { "profileEdit", new[] { "Uložit profil jako soubor k úpravě", "Save profile as an editable file" } },
+        { "profileSaved", new[] { "Profil uložen: {0}", "Profile saved: {0}" } },
+        { "profileMissing", new[] { "⚠ Chybí profil „{0}“ – přidej jeho soubor do složky profilů", "⚠ Missing profile \"{0}\" – add its file to the profiles folder" } },
+        { "placement", new[] { "Umístění ve scéně", "Placement in the scene" } },
+        { "customPos", new[] { "Vlastní umístění", "Custom placement" } },
+        { "posXYZ", new[] { "Poloha X / Y / Z (m)", "Position X / Y / Z (m)" } },
+        { "rotXYZ", new[] { "Natočení X / Y / Z (°)", "Rotation X / Y / Z (°)" } },
+        { "posHint", new[] {
+            "X doprava, Y nahoru, Z k hostům; 0 = střed parketu, zadní stěna je na Z = −6. Natočení X = sklon dolů.",
+            "X right, Y up, Z towards the guests; 0 = dance floor centre, the back wall is at Z = −6. Rotation X = tilt down." } },
+        { "posAuto", new[] { "Automaticky podle profilu", "Automatic (from profile)" } },
 
         // Art-Net
         { "receivingFrom", new[] { "Přijímám od {0}", "Receiving from {0}" } },
@@ -162,8 +196,8 @@ public static class Loc
             "Pravé tlačítko myši + pohyb myší – rozhlížení\nW A S D – pohyb,  Q / E – dolů / nahoru,  Shift – rychleji\n1 – 4 – pohledy kamery\nF11 – celá obrazovka\nH – skrýt / zobrazit rozhraní\nEsc – zavřít okna / ukončit celou obrazovku",
             "Right mouse button + mouse – look around\nW A S D – move,  Q / E – down / up,  Shift – faster\n1 – 4 – camera views\nF11 – fullscreen\nH – hide / show interface\nEsc – close windows / exit fullscreen" } },
         { "aboutText", new[] {
-            "DMX Visualiser {0}\n\nVizualizace světel ze SoundSwitche přes Art-Net.\nGigBar Move ILS (EU), battery pary, pixel tuby, hazer.\n\nVeksCZ  •  github.com/VeksCZ/XR_DMX_Visualiser",
-            "DMX Visualiser {0}\n\nLighting visualisation from SoundSwitch over Art-Net.\nGigBar Move ILS (EU), battery pars, pixel tubes, hazer.\n\nVeksCZ  •  github.com/VeksCZ/XR_DMX_Visualiser" } },
+            "DMX Visualiser {0}\n\nVizualizace světel ze SoundSwitche přes Art-Net.\nSvětla se popisují profily (JSON) – vlastní přidáš do složky Profiles.\n\nVeksCZ  •  github.com/VeksCZ/XR_DMX_Visualiser",
+            "DMX Visualiser {0}\n\nLighting visualisation from SoundSwitch over Art-Net.\nFixtures are described by profiles (JSON) – add your own to the Profiles folder.\n\nVeksCZ  •  github.com/VeksCZ/XR_DMX_Visualiser" } },
     };
 
     public static string T(string key)

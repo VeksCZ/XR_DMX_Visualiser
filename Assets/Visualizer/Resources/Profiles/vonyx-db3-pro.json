@@ -1,0 +1,17 @@
+{
+  "id": "vonyx-db3-pro",
+  "name": "DB3 Pro DJ Booth (černá lycra)",
+  "manufacturer": "Vonyx",
+  "kind": "prop",
+  "placement": "table",
+  "notes": "146 × 73 cm, deska ~93 cm, černá lycra na čele a bocích.",
+  "prop": {
+    "type": "table",
+    "size": [
+      1.46,
+      0.93,
+      0.73
+    ],
+    "lycra": "#080809"
+  }
+}

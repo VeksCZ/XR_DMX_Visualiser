@@ -1,0 +1,96 @@
+{
+  "id": "light4me-black-par-30x3",
+  "name": "Black Par 30x3W RGBA-UV",
+  "manufacturer": "Light4Me",
+  "kind": "light",
+  "placement": "trussHang",
+  "notes": "9ch podle SoundSwitch knihovny; funkce 51–100 skoky, 101–150 prolínání, 151–200 pulz, 201–250 auto.",
+  "parts": [
+    {
+      "type": "par",
+      "housing": "round",
+      "size": 0.19,
+      "beam": 25,
+      "field": 40,
+      "beamLength": 7,
+      "intensity": 30
+    }
+  ],
+  "modes": [
+    {
+      "name": "9ch",
+      "channels": 9,
+      "controls": [
+        {
+          "fn": "dimmer",
+          "ch": 1,
+          "part": 0
+        },
+        {
+          "fn": "red",
+          "ch": 2,
+          "part": 0
+        },
+        {
+          "fn": "green",
+          "ch": 3,
+          "part": 0
+        },
+        {
+          "fn": "blue",
+          "ch": 4,
+          "part": 0
+        },
+        {
+          "fn": "amber",
+          "ch": 5,
+          "part": 0
+        },
+        {
+          "fn": "uv",
+          "ch": 6,
+          "part": 0
+        },
+        {
+          "fn": "strobe",
+          "ch": 7,
+          "part": 0
+        },
+        {
+          "fn": "program",
+          "ch": 8,
+          "part": 0,
+          "min": 0.2,
+          "max": 4,
+          "ranges": [
+            {
+              "from": 51,
+              "to": 100,
+              "type": "jump"
+            },
+            {
+              "from": 101,
+              "to": 150,
+              "type": "fade"
+            },
+            {
+              "from": 151,
+              "to": 200,
+              "type": "pulse"
+            },
+            {
+              "from": 201,
+              "to": 250,
+              "type": "auto"
+            }
+          ]
+        },
+        {
+          "fn": "programSpeed",
+          "ch": 9,
+          "part": 0
+        }
+      ]
+    }
+  ]
+}

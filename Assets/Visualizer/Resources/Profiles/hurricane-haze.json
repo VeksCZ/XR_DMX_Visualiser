@@ -1,0 +1,33 @@
+{
+  "id": "hurricane-haze",
+  "name": "Hurricane Haze",
+  "manufacturer": "Chauvet DJ",
+  "kind": "hazer",
+  "notes": "Haze se nevykresluje jako oblak – hromadí se v sále a zviditelňuje paprsky.",
+  "modes": [
+    {
+      "name": "1ch (Hurricane Haze 1DX)",
+      "channels": 1,
+      "controls": [
+        {
+          "fn": "haze",
+          "ch": 1
+        }
+      ]
+    },
+    {
+      "name": "2ch (Hurricane Haze 4D: fan, haze)",
+      "channels": 2,
+      "controls": [
+        {
+          "fn": "none",
+          "ch": 1
+        },
+        {
+          "fn": "haze",
+          "ch": 2
+        }
+      ]
+    }
+  ]
+}

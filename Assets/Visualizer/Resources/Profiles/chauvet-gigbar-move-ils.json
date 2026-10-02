@@ -1,0 +1,970 @@
+{
+  "id": "chauvet-gigbar-move-ils",
+  "name": "GigBAR Move + ILS (EU)",
+  "manufacturer": "Chauvet DJ",
+  "kind": "light",
+  "placement": "stand",
+  "mountHeight": 2.2,
+  "notes": "52ch podle manuálu EU Rev. 13. Zleva: moving head, derby, par, laser + strobo, par, derby, moving head.",
+  "parts": [
+    {
+      "type": "mover",
+      "beam": 17,
+      "beamLength": 12,
+      "intensity": 160,
+      "brightness": 1.8,
+      "panRange": 540,
+      "tiltRange": 180,
+      "name": "Moving head L",
+      "pos": [
+        -0.47,
+        0,
+        0
+      ],
+      "rot": [
+        0,
+        0,
+        180
+      ]
+    },
+    {
+      "type": "mover",
+      "beam": 17,
+      "beamLength": 12,
+      "intensity": 160,
+      "brightness": 1.8,
+      "panRange": 540,
+      "tiltRange": 180,
+      "name": "Moving head R",
+      "pos": [
+        0.47,
+        0,
+        0
+      ],
+      "rot": [
+        0,
+        0,
+        180
+      ]
+    },
+    {
+      "type": "derby",
+      "name": "Derby L",
+      "pos": [
+        -0.32,
+        0.17,
+        0.02
+      ],
+      "rot": [
+        12,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "derby",
+      "name": "Derby R",
+      "pos": [
+        0.32,
+        0.17,
+        0.02
+      ],
+      "rot": [
+        12,
+        0,
+        0
+      ],
+      "mirror": true
+    },
+    {
+      "type": "par",
+      "name": "Par L",
+      "pos": [
+        -0.18,
+        -0.08,
+        0.02
+      ],
+      "rot": [
+        40,
+        0,
+        0
+      ],
+      "leds": 3
+    },
+    {
+      "type": "par",
+      "name": "Par R",
+      "pos": [
+        0.18,
+        -0.08,
+        0.02
+      ],
+      "rot": [
+        40,
+        0,
+        0
+      ],
+      "leds": 3
+    },
+    {
+      "type": "laser",
+      "name": "Laser",
+      "pos": [
+        0,
+        0.155,
+        0.02
+      ],
+      "rot": [
+        -60,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "strobe",
+      "name": "Strobe",
+      "pos": [
+        0,
+        0.06,
+        0.077
+      ]
+    }
+  ],
+  "shapes": [
+    {
+      "shape": "cube",
+      "pos": [
+        0,
+        0.06,
+        0
+      ],
+      "size": [
+        1.1,
+        0.12,
+        0.144
+      ]
+    },
+    {
+      "shape": "cube",
+      "pos": [
+        -0.18,
+        -0.006,
+        0
+      ],
+      "size": [
+        0.14,
+        0.012,
+        0.05
+      ]
+    },
+    {
+      "shape": "cube",
+      "pos": [
+        -0.245,
+        -0.05,
+        0
+      ],
+      "size": [
+        0.01,
+        0.09,
+        0.04
+      ]
+    },
+    {
+      "shape": "cube",
+      "pos": [
+        -0.115,
+        -0.05,
+        0
+      ],
+      "size": [
+        0.01,
+        0.09,
+        0.04
+      ]
+    },
+    {
+      "shape": "cube",
+      "pos": [
+        0.18,
+        -0.006,
+        0
+      ],
+      "size": [
+        0.14,
+        0.012,
+        0.05
+      ]
+    },
+    {
+      "shape": "cube",
+      "pos": [
+        0.115,
+        -0.05,
+        0
+      ],
+      "size": [
+        0.01,
+        0.09,
+        0.04
+      ]
+    },
+    {
+      "shape": "cube",
+      "pos": [
+        0.245,
+        -0.05,
+        0
+      ],
+      "size": [
+        0.01,
+        0.09,
+        0.04
+      ]
+    }
+  ],
+  "modes": [
+    {
+      "name": "52ch",
+      "channels": 52,
+      "controls": [
+        {
+          "fn": "red",
+          "ch": 1,
+          "part": 4
+        },
+        {
+          "fn": "green",
+          "ch": 2,
+          "part": 4
+        },
+        {
+          "fn": "blue",
+          "ch": 3,
+          "part": 4
+        },
+        {
+          "fn": "amber",
+          "ch": 4,
+          "part": 4
+        },
+        {
+          "fn": "white",
+          "ch": 5,
+          "part": 4
+        },
+        {
+          "fn": "uv",
+          "ch": 6,
+          "part": 4
+        },
+        {
+          "fn": "strobe",
+          "ch": 7,
+          "part": 4,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 0,
+              "type": "off"
+            },
+            {
+              "from": 1,
+              "to": 250,
+              "type": "strobe",
+              "a": 1,
+              "b": 20
+            },
+            {
+              "from": 251,
+              "to": 255,
+              "type": "strobe",
+              "a": 8,
+              "b": 8
+            }
+          ]
+        },
+        {
+          "fn": "red",
+          "ch": 8,
+          "part": 5
+        },
+        {
+          "fn": "green",
+          "ch": 9,
+          "part": 5
+        },
+        {
+          "fn": "blue",
+          "ch": 10,
+          "part": 5
+        },
+        {
+          "fn": "amber",
+          "ch": 11,
+          "part": 5
+        },
+        {
+          "fn": "white",
+          "ch": 12,
+          "part": 5
+        },
+        {
+          "fn": "uv",
+          "ch": 13,
+          "part": 5
+        },
+        {
+          "fn": "strobe",
+          "ch": 14,
+          "part": 5,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 0,
+              "type": "off"
+            },
+            {
+              "from": 1,
+              "to": 250,
+              "type": "strobe",
+              "a": 1,
+              "b": 20
+            },
+            {
+              "from": 251,
+              "to": 255,
+              "type": "strobe",
+              "a": 8,
+              "b": 8
+            }
+          ]
+        },
+        {
+          "fn": "red",
+          "ch": 15,
+          "part": 2
+        },
+        {
+          "fn": "green",
+          "ch": 16,
+          "part": 2
+        },
+        {
+          "fn": "blue",
+          "ch": 17,
+          "part": 2
+        },
+        {
+          "fn": "white",
+          "ch": 18,
+          "part": 2
+        },
+        {
+          "fn": "strobe",
+          "ch": 19,
+          "part": 2,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 0,
+              "type": "off"
+            },
+            {
+              "from": 1,
+              "to": 250,
+              "type": "strobe",
+              "a": 1,
+              "b": 20
+            },
+            {
+              "from": 251,
+              "to": 255,
+              "type": "strobe",
+              "a": 8,
+              "b": 8
+            }
+          ]
+        },
+        {
+          "fn": "rotation",
+          "ch": 20,
+          "part": 2,
+          "max": 150
+        },
+        {
+          "fn": "red",
+          "ch": 21,
+          "part": 3
+        },
+        {
+          "fn": "green",
+          "ch": 22,
+          "part": 3
+        },
+        {
+          "fn": "blue",
+          "ch": 23,
+          "part": 3
+        },
+        {
+          "fn": "white",
+          "ch": 24,
+          "part": 3
+        },
+        {
+          "fn": "strobe",
+          "ch": 25,
+          "part": 3,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 0,
+              "type": "off"
+            },
+            {
+              "from": 1,
+              "to": 250,
+              "type": "strobe",
+              "a": 1,
+              "b": 20
+            },
+            {
+              "from": 251,
+              "to": 255,
+              "type": "strobe",
+              "a": 8,
+              "b": 8
+            }
+          ]
+        },
+        {
+          "fn": "rotation",
+          "ch": 26,
+          "part": 3,
+          "max": 150
+        },
+        {
+          "fn": "ledLevel",
+          "ch": 27,
+          "part": 7,
+          "sub": 0
+        },
+        {
+          "fn": "ledLevel",
+          "ch": 28,
+          "part": 7,
+          "sub": 1
+        },
+        {
+          "fn": "ledLevel",
+          "ch": 29,
+          "part": 7,
+          "sub": 2
+        },
+        {
+          "fn": "ledLevel",
+          "ch": 30,
+          "part": 7,
+          "sub": 3
+        },
+        {
+          "fn": "strobe",
+          "ch": 31,
+          "part": 7,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 0,
+              "type": "off"
+            },
+            {
+              "from": 1,
+              "to": 250,
+              "type": "strobe",
+              "a": 1,
+              "b": 20
+            },
+            {
+              "from": 251,
+              "to": 255,
+              "type": "strobe",
+              "a": 8,
+              "b": 8
+            }
+          ]
+        },
+        {
+          "fn": "color",
+          "ch": 32,
+          "part": 6,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 5,
+              "type": "off"
+            },
+            {
+              "from": 6,
+              "to": 41,
+              "type": "color",
+              "color": "#ff0000"
+            },
+            {
+              "from": 42,
+              "to": 77,
+              "type": "color",
+              "color": "#00ff00"
+            },
+            {
+              "from": 78,
+              "to": 113,
+              "type": "color",
+              "color": "#0000ff"
+            },
+            {
+              "from": 114,
+              "to": 149,
+              "type": "color",
+              "color": "#ffff00"
+            },
+            {
+              "from": 150,
+              "to": 185,
+              "type": "color",
+              "color": "#ff00ff"
+            },
+            {
+              "from": 186,
+              "to": 221,
+              "type": "color",
+              "color": "#00ffff"
+            },
+            {
+              "from": 222,
+              "to": 255,
+              "type": "color",
+              "color": "#ffffff"
+            }
+          ]
+        },
+        {
+          "fn": "strobe",
+          "ch": 33,
+          "part": 6,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 0,
+              "type": "off"
+            },
+            {
+              "from": 1,
+              "to": 250,
+              "type": "strobe",
+              "a": 1,
+              "b": 20
+            },
+            {
+              "from": 251,
+              "to": 255,
+              "type": "strobe",
+              "a": 8,
+              "b": 8
+            }
+          ]
+        },
+        {
+          "fn": "rotation",
+          "ch": 34,
+          "part": 6,
+          "max": 90
+        },
+        {
+          "fn": "pan",
+          "ch": 35,
+          "part": 0,
+          "fine": 36
+        },
+        {
+          "fn": "tilt",
+          "ch": 37,
+          "part": 0,
+          "fine": 38
+        },
+        {
+          "fn": "ptSpeed",
+          "ch": 39,
+          "part": 0
+        },
+        {
+          "fn": "color",
+          "ch": 40,
+          "part": 0,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 6,
+              "type": "color",
+              "color": "#ffffff"
+            },
+            {
+              "from": 7,
+              "to": 13,
+              "type": "color",
+              "color": "#ff0000"
+            },
+            {
+              "from": 14,
+              "to": 20,
+              "type": "color",
+              "color": "#ff800d"
+            },
+            {
+              "from": 21,
+              "to": 27,
+              "type": "color",
+              "color": "#ffff00"
+            },
+            {
+              "from": 28,
+              "to": 34,
+              "type": "color",
+              "color": "#00ff00"
+            },
+            {
+              "from": 35,
+              "to": 41,
+              "type": "color",
+              "color": "#0000ff"
+            },
+            {
+              "from": 42,
+              "to": 48,
+              "type": "color",
+              "color": "#ffcc99"
+            },
+            {
+              "from": 49,
+              "to": 55,
+              "type": "color",
+              "color": "#00ffff"
+            },
+            {
+              "from": 56,
+              "to": 62,
+              "type": "color",
+              "color": "#ff00ff"
+            },
+            {
+              "from": 63,
+              "to": 64,
+              "type": "color",
+              "color": "#b3ff33"
+            },
+            {
+              "from": 65,
+              "to": 189,
+              "type": "hue",
+              "a": 0,
+              "b": 1,
+              "sat": 0.8
+            },
+            {
+              "from": 190,
+              "to": 221,
+              "type": "rainbow",
+              "a": 0.3
+            },
+            {
+              "from": 222,
+              "to": 223,
+              "type": "color",
+              "color": "#ffffff"
+            },
+            {
+              "from": 224,
+              "to": 255,
+              "type": "rainbow",
+              "a": 0.3
+            }
+          ]
+        },
+        {
+          "fn": "gobo",
+          "ch": 41,
+          "part": 0,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 5,
+              "type": "gobo",
+              "a": 0
+            },
+            {
+              "from": 6,
+              "to": 63,
+              "type": "gobos",
+              "a": 1,
+              "b": 9,
+              "step": 6
+            },
+            {
+              "from": 64,
+              "to": 189,
+              "type": "gobo",
+              "a": 9
+            },
+            {
+              "from": 190,
+              "to": 255,
+              "type": "cycle",
+              "a": 10,
+              "b": 2
+            }
+          ]
+        },
+        {
+          "fn": "dimmer",
+          "ch": 42,
+          "part": 0
+        },
+        {
+          "fn": "shutter",
+          "ch": 43,
+          "part": 0,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 3,
+              "type": "closed"
+            },
+            {
+              "from": 4,
+              "to": 7,
+              "type": "open"
+            },
+            {
+              "from": 8,
+              "to": 76,
+              "type": "strobe",
+              "a": 1,
+              "b": 20
+            },
+            {
+              "from": 77,
+              "to": 145,
+              "type": "pulse",
+              "a": 2,
+              "b": 15
+            },
+            {
+              "from": 146,
+              "to": 215,
+              "type": "random",
+              "a": 2,
+              "b": 15
+            },
+            {
+              "from": 216,
+              "to": 255,
+              "type": "open"
+            }
+          ]
+        },
+        {
+          "fn": "pan",
+          "ch": 44,
+          "part": 1,
+          "fine": 45
+        },
+        {
+          "fn": "tilt",
+          "ch": 46,
+          "part": 1,
+          "fine": 47
+        },
+        {
+          "fn": "ptSpeed",
+          "ch": 48,
+          "part": 1
+        },
+        {
+          "fn": "color",
+          "ch": 49,
+          "part": 1,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 6,
+              "type": "color",
+              "color": "#ffffff"
+            },
+            {
+              "from": 7,
+              "to": 13,
+              "type": "color",
+              "color": "#ff0000"
+            },
+            {
+              "from": 14,
+              "to": 20,
+              "type": "color",
+              "color": "#ff800d"
+            },
+            {
+              "from": 21,
+              "to": 27,
+              "type": "color",
+              "color": "#ffff00"
+            },
+            {
+              "from": 28,
+              "to": 34,
+              "type": "color",
+              "color": "#00ff00"
+            },
+            {
+              "from": 35,
+              "to": 41,
+              "type": "color",
+              "color": "#0000ff"
+            },
+            {
+              "from": 42,
+              "to": 48,
+              "type": "color",
+              "color": "#ffcc99"
+            },
+            {
+              "from": 49,
+              "to": 55,
+              "type": "color",
+              "color": "#00ffff"
+            },
+            {
+              "from": 56,
+              "to": 62,
+              "type": "color",
+              "color": "#ff00ff"
+            },
+            {
+              "from": 63,
+              "to": 64,
+              "type": "color",
+              "color": "#b3ff33"
+            },
+            {
+              "from": 65,
+              "to": 189,
+              "type": "hue",
+              "a": 0,
+              "b": 1,
+              "sat": 0.8
+            },
+            {
+              "from": 190,
+              "to": 221,
+              "type": "rainbow",
+              "a": 0.3
+            },
+            {
+              "from": 222,
+              "to": 223,
+              "type": "color",
+              "color": "#ffffff"
+            },
+            {
+              "from": 224,
+              "to": 255,
+              "type": "rainbow",
+              "a": 0.3
+            }
+          ]
+        },
+        {
+          "fn": "gobo",
+          "ch": 50,
+          "part": 1,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 5,
+              "type": "gobo",
+              "a": 0
+            },
+            {
+              "from": 6,
+              "to": 63,
+              "type": "gobos",
+              "a": 1,
+              "b": 9,
+              "step": 6
+            },
+            {
+              "from": 64,
+              "to": 189,
+              "type": "gobo",
+              "a": 9
+            },
+            {
+              "from": 190,
+              "to": 255,
+              "type": "cycle",
+              "a": 10,
+              "b": 2
+            }
+          ]
+        },
+        {
+          "fn": "dimmer",
+          "ch": 51,
+          "part": 1
+        },
+        {
+          "fn": "shutter",
+          "ch": 52,
+          "part": 1,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 3,
+              "type": "closed"
+            },
+            {
+              "from": 4,
+              "to": 7,
+              "type": "open"
+            },
+            {
+              "from": 8,
+              "to": 76,
+              "type": "strobe",
+              "a": 1,
+              "b": 20
+            },
+            {
+              "from": 77,
+              "to": 145,
+              "type": "pulse",
+              "a": 2,
+              "b": 15
+            },
+            {
+              "from": 146,
+              "to": 215,
+              "type": "random",
+              "a": 2,
+              "b": 15
+            },
+            {
+              "from": 216,
+              "to": 255,
+              "type": "open"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

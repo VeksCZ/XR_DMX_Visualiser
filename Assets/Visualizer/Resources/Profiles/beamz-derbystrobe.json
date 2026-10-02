@@ -1,0 +1,137 @@
+{
+  "id": "beamz-derbystrobe",
+  "name": "DerbyStrobe",
+  "manufacturer": "BeamZ",
+  "kind": "light",
+  "placement": "trussTop",
+  "notes": "153.685, Mode 1 (6ch) podle SoundSwitch Fixture Manageru. Derby 4× 3W RGBW + strobo panel z bílých SMD LED.",
+  "parts": [
+    {
+      "type": "derbystrobe"
+    }
+  ],
+  "modes": [
+    {
+      "name": "6ch",
+      "channels": 6,
+      "controls": [
+        {
+          "fn": "none",
+          "ch": 1,
+          "part": 0
+        },
+        {
+          "fn": "color",
+          "ch": 2,
+          "part": 0,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 9,
+              "type": "off"
+            },
+            {
+              "from": 10,
+              "to": 19,
+              "type": "color",
+              "color": "#ff2600"
+            },
+            {
+              "from": 20,
+              "to": 29,
+              "type": "color",
+              "color": "#00ff00"
+            },
+            {
+              "from": 30,
+              "to": 39,
+              "type": "color",
+              "color": "#0033ff"
+            },
+            {
+              "from": 40,
+              "to": 49,
+              "type": "color",
+              "color": "#fffa00"
+            },
+            {
+              "from": 50,
+              "to": 59,
+              "type": "color",
+              "color": "#ff40ff"
+            },
+            {
+              "from": 60,
+              "to": 79,
+              "type": "color",
+              "color": "#ffffffff"
+            },
+            {
+              "from": 80,
+              "to": 89,
+              "type": "color",
+              "color": "#00fcff"
+            },
+            {
+              "from": 90,
+              "to": 255,
+              "type": "cycle",
+              "a": 2
+            }
+          ]
+        },
+        {
+          "fn": "rotation",
+          "ch": 3,
+          "part": 0,
+          "max": 150
+        },
+        {
+          "fn": "strobe",
+          "ch": 4,
+          "part": 0,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 9,
+              "type": "off"
+            },
+            {
+              "from": 10,
+              "to": 159,
+              "type": "strobe",
+              "a": 1,
+              "b": 20
+            },
+            {
+              "from": 160,
+              "to": 255,
+              "type": "strobe",
+              "a": 20,
+              "b": 20
+            }
+          ]
+        },
+        {
+          "fn": "program",
+          "ch": 5,
+          "part": 0,
+          "min": 0.5,
+          "max": 6,
+          "ranges": [
+            {
+              "from": 10,
+              "to": 255,
+              "type": "derbyAuto"
+            }
+          ]
+        },
+        {
+          "fn": "programSpeed",
+          "ch": 6,
+          "part": 0
+        }
+      ]
+    }
+  ]
+}

@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 [Serializable]
 public class VisualizerSettings
 {
-    public int version = 8;
+    public int version = 9;
     public List<FixtureEntry> fixtures;
     public float hazeBuildRate = 0.08f;
     public float hazeDecay = 0.01f;
@@ -25,6 +25,7 @@ public class VisualizerSettings
     public bool panelOpen = true;
     public bool panelMinimized = false;
     public float roomLight = 0f;           // teplé světlo v sále (0–1)
+    public List<FixtureProfile> customProfiles = new List<FixtureProfile>();   // vlastní profily použité v sestavě (přenáší se s nastavením)
 
     // Windows: portable – settings.json leží ve složce s .exe (přenáší se se složkou, aktualizace ho nepřepíše).
     // Když do složky nejde zapisovat (např. Program Files), zůstává v persistentDataPath.
@@ -63,30 +64,44 @@ public class VisualizerSettings
         }
         catch (Exception e) { Debug.LogWarning("Settings load failed: " + e.Message); }
         if (s == null) s = new VisualizerSettings();
-        if (s.fixtures == null || s.fixtures.Count == 0) s.fixtures = FixtureEntry.Defaults();
+        bool empty = s.fixtures == null || s.fixtures.Count == 0;
+        if (empty) s.fixtures = RigPresets.Mine();
         if (string.IsNullOrEmpty(s.language))
             s.language = Application.systemLanguage == SystemLanguage.Czech || Application.systemLanguage == SystemLanguage.Slovak ? "cs" : "en";
         if (s.windowWidth < 640 || s.windowHeight < 360) { s.windowWidth = 1600; s.windowHeight = 900; }
         if (s.version < 4) s.panelOpen = true;
-        if (s.version < 5 && !s.fixtures.Exists(f => f.type == FixtureType.PocketPro))
+        if (!empty && s.version < 9) MigrateLegacy(s);
+        foreach (var f in s.fixtures) f.Migrate();   // typ jako číslo → id profilu
+        if (s.customProfiles == null) s.customProfiles = new List<FixtureProfile>();
+        ProfileLibrary.Reload(s.customProfiles);
+        s.version = 9;
+        return s;
+    }
+
+    // Převody nastavení ze starších verzí (patch se tehdy ukládal jako typ světla)
+    static void MigrateLegacy(VisualizerSettings s)
+    {
+        bool Old(FixtureEntry f) => string.IsNullOrEmpty(f.profile);
+        if (s.version < 5 && !s.fixtures.Exists(f => Old(f) && f.type == FixtureType.PocketPro))
         {
             // v0.5.1: přibyly ADJ Pocket Pro – doplnit do uloženého patche za GigBar
-            int at = s.fixtures.FindIndex(f => f.type == FixtureType.GigBarMoveILS) + 1;
-            s.fixtures.Insert(at, new FixtureEntry(FixtureType.PocketPro, "Pocket Pro R", 46));
-            s.fixtures.Insert(at, new FixtureEntry(FixtureType.PocketPro, "Pocket Pro L", 33));
+            int at = s.fixtures.FindIndex(f => Old(f) && f.type == FixtureType.GigBarMoveILS) + 1;
+            s.fixtures.Insert(at, new FixtureEntry { type = FixtureType.PocketPro, name = "Pocket Pro R", address = 46 });
+            s.fixtures.Insert(at, new FixtureEntry { type = FixtureType.PocketPro, name = "Pocket Pro L", address = 33 });
         }
         if (s.version < 6)
         {
             // v0.5.1: hlavy GigBaru mají „dopředu“ kolem 1/3 rozsahu panu
-            foreach (var f in s.fixtures) if (f.type == FixtureType.GigBarMoveILS && f.panOffset == 0f) f.panOffset = 90f;
+            foreach (var f in s.fixtures) if (Old(f) && f.type == FixtureType.GigBarMoveILS && f.panOffset == 0f) f.panOffset = 90f;
         }
         if (s.version < 7)
         {
             // v0.5.1: kalibrace na SS „Stage Center“ = střed parketu (jen pokud ji uživatel neměnil)
-            var defs = FixtureEntry.Defaults();
+            var defs = RigPresets.Mine();
             int pi = 0;
             foreach (var f in s.fixtures)
             {
+                if (!Old(f)) continue;
                 FixtureEntry def = null;
                 if (f.type == FixtureType.GigBarMoveILS && f.panOffset == 90f) def = defs[0];
                 else if (f.type == FixtureType.PocketPro) { if (pi < 2 && f.panOffset == 0f) def = defs[1 + pi]; pi++; }
@@ -94,18 +109,36 @@ public class VisualizerSettings
                 f.panOffset = def.panOffset; f.tiltOffset = def.tiltOffset;
             }
         }
-        if (s.version < 8 && !s.fixtures.Exists(f => FixtureEntry.IsProp(f.type)))
+        if (s.version < 8 && !s.fixtures.Exists(f => Old(f) && f.type >= FixtureType.EventTable))
         {
             // v0.5.5: stůl / booth a repro jako položky seznamu – podle toho, čí sestava je uložená
-            bool colleague = s.fixtures.Exists(f => f.type == FixtureType.DerbyStrobe || f.type == FixtureType.BlackPar || f.type == FixtureType.DoubleHelix);
-            s.fixtures.AddRange(colleague ? FixtureEntry.ColleagueProps() : FixtureEntry.OwnProps());
+            bool colleague = s.fixtures.Exists(f => Old(f) && (f.type == FixtureType.DerbyStrobe || f.type == FixtureType.BlackPar || f.type == FixtureType.DoubleHelix));
+            s.fixtures.AddRange(colleague
+                ? new List<FixtureEntry> { new FixtureEntry("vonyx-db3-pro", "DJ booth", 1), new FixtureEntry("fbt-promaxx-14a", "Repro L", 1), new FixtureEntry("fbt-promaxx-14a", "Repro R", 1) }
+                : new List<FixtureEntry> { new FixtureEntry("adj-pro-event-table-2", "DJ stůl", 1), new FixtureEntry("fbt-promaxx-12a", "Repro L", 1), new FixtureEntry("fbt-promaxx-12a", "Repro R", 1) });
         }
-        s.version = 8;
-        return s;
+    }
+
+    // Do nastavení se ukládají profily, které nejsou vestavěné (nebo jsou upravené) – aby šly se sestavou do Questu a ke kolegovi
+    public void EmbedProfiles() => customProfiles = UsedCustomProfiles(fixtures);
+
+    public static List<FixtureProfile> UsedCustomProfiles(List<FixtureEntry> list)
+    {
+        var res = new List<FixtureProfile>();
+        var seen = new HashSet<string>();
+        if (list == null) return res;
+        foreach (var f in list)
+        {
+            var p = f != null ? f.Profile : null;
+            if (p == null || p.source == "builtin" || !seen.Add(p.id)) continue;
+            res.Add(p);
+        }
+        return res;
     }
 
     public void Save()
     {
+        EmbedProfiles();
         try { File.WriteAllText(FilePath, JsonUtility.ToJson(this, true)); }
         catch (Exception e) { Debug.LogWarning("Settings save failed: " + e.Message); }
     }
@@ -142,18 +175,24 @@ public class VisualizerMenu : MonoBehaviour
     readonly List<string> eName = new List<string>();
     readonly List<string> eUni = new List<string>();
     readonly List<string> eAddr = new List<string>();
-    readonly List<bool> e40 = new List<bool>();
+    readonly List<int> eMode = new List<int>();
+    readonly List<bool> eCustom = new List<bool>();
+    readonly List<string[]> ePos = new List<string[]>();   // x, y, z, rx, ry, rz
     readonly List<bool> eOn = new List<bool>();
     readonly List<string> eOffset = new List<string>();
     readonly List<string> eTiltOffset = new List<string>();
     readonly List<bool> eInvPan = new List<bool>();
     readonly List<bool> eInvTilt = new List<bool>();
     int selFixture;
-    bool modeSelectOpen;
-    Rect selectRect, selectPopupRect;
+    Rect selectPopupRect;
     string[] selectModes;
     int selectIndex, selectFor;
-    Vector2 lightsScroll;
+    Vector2 lightsScroll, detailScroll, pickScroll;
+    bool rigDirty;                 // seznam v dialogu se změnil – náhled ve scéně postavit znovu
+    int popup;                     // 0 = nic, 1 = režim kanálů, 2 = přidat světlo, 3 = import sestavy
+    Rect popupAnchor;
+    string rigName = "";
+    string[] rigFiles;
     string settingsError;
 
     struct Cam { public string key; public Vector3 pos, look; }
@@ -259,51 +298,46 @@ public class VisualizerMenu : MonoBehaviour
         patch.fixtures = CloneList(s.fixtures);
         patch.hazeBuildRate = s.hazeBuildRate;
         patch.hazeDecay = s.hazeDecay;
-        ApplyVisibility();
+        if (scene != null) scene.Rebuild(patch.fixtures);
     }
 
-    // Zatržítka ze seznamu světel → zapnout/vypnout objekty ve scéně
+    // Uložený stav → scéna (po zavření dialogu bez uložení)
     void ApplyVisibility()
     {
-        if (scene == null) return;
-        scene.HideAllFixtures();   // co v patchi není, ve scéně nebude
-        var count = new Dictionary<FixtureType, int>();
-        foreach (var f in s.fixtures)
-        {
-            count.TryGetValue(f.type, out int n);
-            scene.SetVisible(f.type, n, !f.hidden);
-            count[f.type] = n + 1;
-        }
-        scene.FinishVisibility();
+        if (scene == null || patch == null) return;
+        rigDirty = false;
+        scene.Rebuild(patch.fixtures);
     }
 
-    // Okamžitý náhled zatržítek v dialogu (Zrušit vrátí uložený stav)
+    // Okamžitý náhled dialogu ve scéně (Zrušit vrátí uložený stav)
     void PreviewVisibility()
     {
         if (scene == null || stFixtures == null) return;
-        scene.HideAllFixtures();
-        var count = new Dictionary<FixtureType, int>();
-        for (int i = 0; i < stFixtures.Count; i++)
+        for (int i = 0; i < stFixtures.Count; i++) stFixtures[i].hidden = !eOn[i];
+        bool same = !rigDirty && scene.instances.Count == stFixtures.Count;
+        for (int i = 0; same && i < stFixtures.Count; i++) same = scene.instances[i].entry == stFixtures[i];
+        if (!same)
         {
-            var t = stFixtures[i].type;
-            count.TryGetValue(t, out int n);
-            scene.SetVisible(t, n, eOn[i]);
-            count[t] = n + 1;
+            for (int i = 0; i < stFixtures.Count; i++) stFixtures[i].mode = eMode[i];
+            scene.Rebuild(stFixtures);
+            rigDirty = false;
+            return;
         }
+        for (int i = 0; i < stFixtures.Count; i++) scene.SetVisible(i, eOn[i]);
         scene.FinishVisibility();
     }
 
     void CloseSettingsWithoutSaving()
     {
         winOpen[WinSettings] = false;
+        popup = 0;
         ApplyVisibility();
     }
 
     static List<FixtureEntry> CloneList(List<FixtureEntry> src)
     {
         var l = new List<FixtureEntry>();
-        foreach (var f in src)
-            l.Add(new FixtureEntry { type = f.type, name = f.name, universe = f.universe, address = f.address, mode40ch = f.mode40ch, hidden = f.hidden, panOffset = f.panOffset, tiltOffset = f.tiltOffset, invertPan = f.invertPan, invertTilt = f.invertTilt });
+        foreach (var f in src) if (f != null) l.Add(f.Clone());
         return l;
     }
 
@@ -314,44 +348,122 @@ public class VisualizerMenu : MonoBehaviour
         stFixtures = CloneList(s.fixtures);
         LoadEditor();
         settingsError = null;
+        rigDirty = true;
+        popup = 0;
         OpenWindow(WinSettings);
+        PreviewVisibility();   // náhled pracuje s kopií z dialogu
     }
+
+    static string Num(float v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 
     void LoadEditor()
     {
-        eName.Clear(); eUni.Clear(); eAddr.Clear(); e40.Clear(); eOn.Clear(); eOffset.Clear(); eTiltOffset.Clear(); eInvPan.Clear(); eInvTilt.Clear();
-        foreach (var f in stFixtures)
-        {
-            eName.Add(f.name);
-            eUni.Add(f.universe.ToString());
-            eAddr.Add(f.address.ToString());
-            e40.Add(f.mode40ch);
-            eOn.Add(!f.hidden);
-            eOffset.Add(f.panOffset.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture));
-            eTiltOffset.Add(f.tiltOffset.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture));
-            eInvPan.Add(f.invertPan);
-            eInvTilt.Add(f.invertTilt);
-        }
+        eName.Clear(); eUni.Clear(); eAddr.Clear(); eMode.Clear(); eOn.Clear(); eOffset.Clear(); eTiltOffset.Clear(); eInvPan.Clear(); eInvTilt.Clear();
+        eCustom.Clear(); ePos.Clear();
+        foreach (var f in stFixtures) AddEditorRow(f);
         selFixture = Mathf.Clamp(selFixture, 0, Mathf.Max(0, stFixtures.Count - 1));
-        modeSelectOpen = false;
+        popup = 0;
+    }
+
+    void AddEditorRow(FixtureEntry f, int at = -1)
+    {
+        if (at < 0) at = eName.Count;
+        eName.Insert(at, f.name);
+        eUni.Insert(at, f.universe.ToString());
+        eAddr.Insert(at, f.address.ToString());
+        eMode.Insert(at, f.mode);
+        eOn.Insert(at, !f.hidden);
+        eOffset.Insert(at, f.panOffset.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture));
+        eTiltOffset.Insert(at, f.tiltOffset.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture));
+        eInvPan.Insert(at, f.invertPan);
+        eInvTilt.Insert(at, f.invertTilt);
+        eCustom.Insert(at, f.customPos);
+        ePos.Insert(at, new[] { Num(f.pos.x), Num(f.pos.y), Num(f.pos.z), Num(f.rot.x), Num(f.rot.y), Num(f.rot.z) });
+    }
+
+    void RemoveEditorRow(int i)
+    {
+        stFixtures.RemoveAt(i);
+        eName.RemoveAt(i); eUni.RemoveAt(i); eAddr.RemoveAt(i); eMode.RemoveAt(i); eOn.RemoveAt(i); eOffset.RemoveAt(i);
+        eTiltOffset.RemoveAt(i); eInvPan.RemoveAt(i); eInvTilt.RemoveAt(i); eCustom.RemoveAt(i); ePos.RemoveAt(i);
+    }
+
+    void MoveEditorRow(int i, int d)
+    {
+        int j = i + d;
+        if (j < 0 || j >= stFixtures.Count) return;
+        var f = stFixtures[i];
+        // zachovat rozepsané hodnoty
+        RemoveRowInto(i, out string n, out string u, out string a, out int m, out bool on, out string po, out string to, out bool ip, out bool it, out bool cu, out string[] ps);
+        stFixtures.Insert(j, f);
+        eName.Insert(j, n); eUni.Insert(j, u); eAddr.Insert(j, a); eMode.Insert(j, m); eOn.Insert(j, on); eOffset.Insert(j, po);
+        eTiltOffset.Insert(j, to); eInvPan.Insert(j, ip); eInvTilt.Insert(j, it); eCustom.Insert(j, cu); ePos.Insert(j, ps);
+        selFixture = j;
+        rigDirty = true;
+        PreviewVisibility();
+    }
+
+    void RemoveRowInto(int i, out string n, out string u, out string a, out int m, out bool on, out string po, out string to, out bool ip, out bool it, out bool cu, out string[] ps)
+    {
+        n = eName[i]; u = eUni[i]; a = eAddr[i]; m = eMode[i]; on = eOn[i]; po = eOffset[i]; to = eTiltOffset[i];
+        ip = eInvPan[i]; it = eInvTilt[i]; cu = eCustom[i]; ps = ePos[i];
+        RemoveEditorRow(i);
+    }
+
+    // Nové světlo podle profilu: za vybrané, první volná adresa za posledním světlem
+    void AddFixture(FixtureProfile p)
+    {
+        var f = new FixtureEntry(p.id, p.Label, 1);
+        if (!p.IsProp)
+        {
+            int end = 0;
+            for (int i = 0; i < stFixtures.Count; i++)
+            {
+                var q = stFixtures[i].Profile;
+                if (q == null || q.IsProp) continue;
+                if (int.TryParse(eUni[i], out int u) && u == 1 && int.TryParse(eAddr[i], out int a))
+                    end = Mathf.Max(end, a + q.Channels(eMode[i]) - 1);
+            }
+            int ch = p.Channels(0);
+            f.address = end + ch <= 512 ? end + 1 : 1;
+        }
+        int at = stFixtures.Count == 0 ? 0 : Mathf.Clamp(selFixture + 1, 0, stFixtures.Count);
+        stFixtures.Insert(at, f);
+        AddEditorRow(f, at);
+        selFixture = at;
+        rigDirty = true;
+        PreviewVisibility();
     }
 
     // Zkontroluje a uloží vše z dialogu. Vrací true, když se povedlo.
     bool ApplySettings()
     {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
         for (int i = 0; i < stFixtures.Count; i++)
         {
             var f = stFixtures[i];
-            int ch = FixtureEntry.Channels(f.type, e40[i]);
-            string nm = string.IsNullOrWhiteSpace(eName[i]) ? FixtureEntry.TypeLabel(f.type) : eName[i].Trim();
-            if (!int.TryParse(eUni[i], out int u) || u < 1 || u > 16) { settingsError = Loc.F("errUniverse", nm); settingsTab = 1; selFixture = i; return false; }
-            if (!int.TryParse(eAddr[i], out int a) || a < 1 || a + ch - 1 > 512) { settingsError = Loc.F("errAddress", nm, 513 - ch); settingsTab = 1; selFixture = i; return false; }
-            if (!float.TryParse(eOffset[i].Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float po) || po < -540f || po > 540f)
+            var p = f.Profile;
+            int ch = p == null || p.IsProp ? 0 : p.Channels(eMode[i]);
+            string nm = string.IsNullOrWhiteSpace(eName[i]) ? (p != null ? p.Label : f.profile) : eName[i].Trim();
+            if (ch > 0)
+            {
+                if (!int.TryParse(eUni[i], out int u) || u < 1 || u > 16) { settingsError = Loc.F("errUniverse", nm); settingsTab = 1; selFixture = i; return false; }
+                if (!int.TryParse(eAddr[i], out int a) || a < 1 || a + ch - 1 > 512) { settingsError = Loc.F("errAddress", nm, 513 - ch); settingsTab = 1; selFixture = i; return false; }
+                f.universe = u; f.address = a;
+            }
+            if (!TryDeg(eOffset[i], out float po) || po < -540f || po > 540f)
             { settingsError = Loc.F("errOffset", nm); settingsTab = 1; selFixture = i; return false; }
             if (!TryDeg(eTiltOffset[i], out float to) || to < -270f || to > 270f)
             { settingsError = Loc.F("errTiltOffset", nm); settingsTab = 1; selFixture = i; return false; }
-            f.name = nm; f.universe = u; f.address = a; f.mode40ch = e40[i]; f.hidden = !eOn[i];
+            var v = new float[6];
+            for (int k = 0; k < 6; k++)
+                if (!TryDeg(ePos[i][k], out v[k]) || Mathf.Abs(v[k]) > (k < 3 ? 50f : 360f))
+                { if (eCustom[i]) { settingsError = Loc.F("errPos", nm); settingsTab = 1; selFixture = i; return false; } v[k] = 0f; }
+            f.name = nm; f.mode = eMode[i]; f.hidden = !eOn[i];
             f.panOffset = po; f.tiltOffset = to; f.invertPan = eInvPan[i]; f.invertTilt = eInvTilt[i];
+            f.customPos = eCustom[i];
+            f.pos = new Vector3(v[0], v[1], v[2]);
+            f.rot = new Vector3(v[3], v[4], v[5]);
         }
         s.fixtures = CloneList(stFixtures);
         s.showStatusBar = stStatus;
@@ -359,21 +471,32 @@ public class VisualizerMenu : MonoBehaviour
         s.language = stEn ? "en" : "cs";
         ApplyToPatch();
         s.Save();
+        // dialog dál pracuje s vlastní kopií (scéna teď ukazuje uložený stav)
+        stFixtures = CloneList(s.fixtures);
+        rigDirty = true;
         settingsError = null;
         Flash(Loc.T("saved"));
         return true;
     }
 
+    int EditorChannels(int i)
+    {
+        var p = stFixtures[i].Profile;
+        return p == null || p.IsProp ? 0 : p.Channels(eMode[i]);
+    }
+
     string Overlap(int i)
     {
-        if (FixtureEntry.IsProp(stFixtures[i].type)) return null;
+        int ch = EditorChannels(i);
+        if (ch == 0) return null;
         if (!int.TryParse(eUni[i], out int u) || !int.TryParse(eAddr[i], out int a)) return null;
-        int end = a + FixtureEntry.Channels(stFixtures[i].type, e40[i]) - 1;
+        int end = a + ch - 1;
         for (int j = 0; j < stFixtures.Count; j++)
         {
-            if (j == i || FixtureEntry.IsProp(stFixtures[j].type)) continue;
+            int ch2 = j == i ? 0 : EditorChannels(j);
+            if (ch2 == 0) continue;
             if (!int.TryParse(eUni[j], out int u2) || !int.TryParse(eAddr[j], out int a2) || u2 != u) continue;
-            int end2 = a2 + FixtureEntry.Channels(stFixtures[j].type, e40[j]) - 1;
+            int end2 = a2 + ch2 - 1;
             if (a <= end2 && a2 <= end) return eName[j];
         }
         return null;
@@ -761,13 +884,12 @@ public class VisualizerMenu : MonoBehaviour
     public int CalibrateAllToCenter()
     {
         if (patch == null || scene == null || !HasArtNet) return 0;
-        int n = 0, pocket = 0;
-        foreach (var f in s.fixtures)
+        int n = 0;
+        for (int i = 0; i < s.fixtures.Count; i++)
         {
-            if (f == null || !FixtureEntry.HasMovers(f.type)) continue;
-            int idx = f.type == FixtureType.PocketPro ? pocket++ : 0;
-            if (f.hidden) continue;
-            if (patch.SolveOffsets(f, idx, scene.danceFloorCenter, out float po, out float to))
+            var f = s.fixtures[i];
+            if (f == null || f.hidden || !f.HasMovers) continue;
+            if (patch.SolveOffsets(i, f, scene.danceFloorCenter, out float po, out float to))
             {
                 f.panOffset = Mathf.Round(po);
                 f.tiltOffset = Mathf.Round(to);
@@ -824,6 +946,14 @@ public class VisualizerMenu : MonoBehaviour
     // ---- Nastavení ----
     void DrawSettings()
     {
+        // Otevřená nabídka leží nad ostatními prvky – klik do ní musí dostat ona, ne prvek pod ní
+        var ev0 = Event.current;
+        if (settingsTab == 1 && popup != 0 && selectPopupRect.Contains(ev0.mousePosition)
+            && (ev0.type == EventType.MouseDown || ev0.type == EventType.MouseUp || ev0.type == EventType.ScrollWheel))
+        {
+            DrawPopup();
+            if (ev0.type != EventType.Used) ev0.Use();
+        }
         GUILayout.BeginHorizontal();
         if (GUILayout.Toggle(settingsTab == 0, Loc.T("tabGeneral"), sTab)) settingsTab = 0;
         if (GUILayout.Toggle(settingsTab == 1, Loc.T("tabLights"), sTab)) settingsTab = 1;
@@ -834,8 +964,8 @@ public class VisualizerMenu : MonoBehaviour
 
         // Klik mimo rozbalený select ho zavře
         var ev = Event.current;
-        if (modeSelectOpen && ev.type == EventType.MouseDown && !selectPopupRect.Contains(ev.mousePosition) && !selectRect.Contains(ev.mousePosition))
-            modeSelectOpen = false;
+        if (popup != 0 && ev.type == EventType.MouseDown && !selectPopupRect.Contains(ev.mousePosition) && !FromScreen(popupAnchor).Contains(ev.mousePosition))
+            popup = 0;
 
         // Obsah záložky má pevnou výšku – tlačítka jsou vždy na stejném místě vpravo dole
         GUILayout.BeginVertical(GUILayout.Height(520 * k));
@@ -883,34 +1013,146 @@ public class VisualizerMenu : MonoBehaviour
         if (GUILayout.Button(Loc.T("cancel"), sButton, GUILayout.Width(90 * k))) CloseSettingsWithoutSaving();
         GUILayout.EndHorizontal();
 
-        if (settingsTab == 1 && modeSelectOpen) DrawModePopup();
+        if (settingsTab == 1 && popup != 0) DrawPopup();
     }
 
-    // Rozbalený select režimu kanálů – plovoucí nabídka pod tlačítkem, nic neposouvá
-    void DrawModePopup()
+    // Plovoucí nabídky (režim kanálů, přidat světlo, import sestavy) – kreslí se navrch, nic neposouvají
+    // Kotva nabídky v souřadnicích obrazovky – tlačítko může být uvnitř posuvného panelu
+    static Rect ToScreen(Rect r) => new Rect(GUIUtility.GUIToScreenPoint(r.position), r.size);
+    static Rect FromScreen(Rect r) => new Rect(GUIUtility.ScreenToGUIPoint(r.position), r.size);
+
+    void DrawPopup()
     {
-        if (selectModes == null || selectFor < 0 || selectFor >= e40.Count) return;
         float ih = 24 * k;
-        selectPopupRect = new Rect(selectRect.x, selectRect.yMax + 2 * k, selectRect.width, ih * selectModes.Length + 4 * k);
-        GUI.DrawTexture(selectPopupRect, tDrop);
-        for (int j = 0; j < selectModes.Length; j++)
+        var popupAnchor = FromScreen(this.popupAnchor);
+        if (popup == 1)
         {
-            var r = new Rect(selectPopupRect.x, selectPopupRect.y + 2 * k + j * ih, selectPopupRect.width, ih);
-            if (GUI.Button(r, (j == selectIndex ? "✓  " : "     ") + selectModes[j], sDropItem))
+            if (selectModes == null || selectFor < 0 || selectFor >= eMode.Count) { popup = 0; return; }
+            selectPopupRect = new Rect(popupAnchor.x, popupAnchor.yMax + 2 * k, popupAnchor.width, ih * selectModes.Length + 4 * k);
+            GUI.DrawTexture(selectPopupRect, tDrop);
+            for (int j = 0; j < selectModes.Length; j++)
             {
-                e40[selectFor] = j == 1;
-                modeSelectOpen = false;
+                var r = new Rect(selectPopupRect.x, selectPopupRect.y + 2 * k + j * ih, selectPopupRect.width, ih);
+                if (GUI.Button(r, (j == selectIndex ? "✓  " : "     ") + selectModes[j], sDropItem))
+                {
+                    if (eMode[selectFor] != j) { eMode[selectFor] = j; rigDirty = true; PreviewVisibility(); }
+                    popup = 0;
+                }
             }
+            return;
         }
+
+        // seznam profilů nebo souborů sestav
+        var labels = new List<string>();
+        List<FixtureProfile> profs = null;
+        if (popup == 2)
+        {
+            profs = ProfileLibrary.All;
+            foreach (var p in profs) labels.Add((p.IsProp ? "▫  " : p.IsHazer ? "≈  " : "•  ") + p.Label);
+        }
+        else
+        {
+            if (rigFiles == null || rigFiles.Length == 0) labels.Add(Loc.T("rigNone"));
+            else foreach (var f in rigFiles) labels.Add(Path.GetFileNameWithoutExtension(f));
+        }
+        float w = Mathf.Max(popupAnchor.width, 360 * k);
+        float hMax = Mathf.Min(ih * labels.Count + 4 * k, 330 * k);
+        selectPopupRect = new Rect(popupAnchor.x, popupAnchor.y - hMax - 2 * k, w, hMax);   // nad tlačítkem (je dole v okně)
+        if (selectPopupRect.y < 40 * k) selectPopupRect.y = popupAnchor.yMax + 2 * k;
+        GUI.DrawTexture(selectPopupRect, tDrop);
+        pickScroll = GUI.BeginScrollView(selectPopupRect, pickScroll, new Rect(0, 0, w - 18 * k, ih * labels.Count + 4 * k));
+        for (int j = 0; j < labels.Count; j++)
+        {
+            var r = new Rect(0, 2 * k + j * ih, w - 18 * k, ih);
+            if (!GUI.Button(r, labels[j], sDropItem)) continue;
+            popup = 0;
+            if (profs != null) AddFixture(profs[j]);
+            else if (rigFiles != null && j < rigFiles.Length) ImportRig(rigFiles[j]);
+        }
+        GUI.EndScrollView();
     }
 
-    void LoadPreset(List<FixtureEntry> list)
+    void LoadPreset(List<FixtureEntry> list, string flash = null)
     {
         stFixtures = list;
         selFixture = 0;
         LoadEditor();
+        rigDirty = true;
         PreviewVisibility();
-        Flash(Loc.T("resetLightsDone"));
+        Flash(flash ?? Loc.T("resetLightsDone"));
+    }
+
+    // ---- Sestava jako soubor (export / import) ----
+    [Serializable]
+    class RigFile
+    {
+        public string app = "DMX Visualiser";
+        public string appVersion;
+        public int version = 9;
+        public List<FixtureEntry> fixtures;
+        public List<FixtureProfile> customProfiles;   // stejný název jako v settings.json → jde importovat i settings.json
+    }
+
+    static string RigsDir =>
+#if UNITY_EDITOR
+        Path.Combine(Path.GetDirectoryName(Application.dataPath), "Build", "Rigs");
+#else
+        Path.Combine(Path.GetDirectoryName(VisualizerSettings.FilePath), "Rigs");
+#endif
+
+    void ExportRig()
+    {
+        if (!ApplySettings()) return;   // exportuje se to, co je v dialogu
+        try
+        {
+            string name = ProfileLibrary.SafeName(string.IsNullOrWhiteSpace(rigName) ? "sestava" : rigName.Trim());
+            Directory.CreateDirectory(RigsDir);
+            string path = Path.Combine(RigsDir, name + ".json");
+            var rf = new RigFile { appVersion = Application.version, fixtures = CloneList(s.fixtures), customProfiles = VisualizerSettings.UsedCustomProfiles(s.fixtures) };
+            File.WriteAllText(path, JsonUtility.ToJson(rf, true));
+            Flash(Loc.F("rigExported", path));
+        }
+        catch (Exception e) { settingsError = Loc.F("rigImportErr", e.Message); }
+    }
+
+    void OpenRigPicker()
+    {
+        try { rigFiles = Directory.Exists(RigsDir) ? Directory.GetFiles(RigsDir, "*.json") : new string[0]; }
+        catch { rigFiles = new string[0]; }
+        popup = 3;
+    }
+
+    void ImportRig(string path)
+    {
+        try
+        {
+            var rf = JsonUtility.FromJson<RigFile>(File.ReadAllText(path));
+            if (rf == null || rf.fixtures == null || rf.fixtures.Count == 0) throw new Exception(Loc.En ? "no fixtures in the file" : "soubor neobsahuje světla");
+            // vlastní profily ze sestavy do knihovny (soubory ve složce Profiles), aby je šlo i upravit
+            if (rf.customProfiles != null)
+                foreach (var p in rf.customProfiles)
+                    if (p != null && ProfileLibrary.Validate(p) == null) ProfileLibrary.SaveToLibrary(p);
+            ProfileLibrary.Reload(s.customProfiles);
+            foreach (var f in rf.fixtures) if (f != null) f.Migrate();
+            rf.fixtures.RemoveAll(f => f == null);
+            rigName = Path.GetFileNameWithoutExtension(path);
+            LoadPreset(rf.fixtures, Loc.F("rigImported", rigName));
+        }
+        catch (Exception e) { settingsError = Loc.F("rigImportErr", e.Message); }
+    }
+
+    static void OpenFolder(string dir)
+    {
+        try { Directory.CreateDirectory(dir); Application.OpenURL("file:///" + dir.Replace('\\', '/')); }
+        catch (Exception e) { Debug.LogWarning(e.Message); }
+    }
+
+    void ReloadProfiles()
+    {
+        ProfileLibrary.Reload(s.customProfiles);
+        rigDirty = true;
+        PreviewVisibility();
+        Flash(Loc.F("profilesReloaded", ProfileLibrary.All.Count));
     }
 
     // Světla: vlevo seznam se zatržítky (zobrazit ve scéně), vpravo nastavení vybraného světla
@@ -921,64 +1163,126 @@ public class VisualizerMenu : MonoBehaviour
         GUILayout.BeginHorizontal();
 
         // ---- seznam ----
-        GUILayout.BeginVertical(GUILayout.Width(260 * k));
-        lightsScroll = GUILayout.BeginScrollView(lightsScroll, GUI.skin.box, GUILayout.Height(Mathf.Min(Screen.height * 0.5f, 360 * k)));
+        GUILayout.BeginVertical(GUILayout.Width(280 * k));
+        lightsScroll = GUILayout.BeginScrollView(lightsScroll, GUI.skin.box, GUILayout.Height(Mathf.Min(Screen.height * 0.4f, 250 * k)));
         for (int i = 0; i < stFixtures.Count; i++)
         {
             GUILayout.BeginHorizontal();
             bool was = eOn[i];
             eOn[i] = GUILayout.Toggle(eOn[i], GUIContent.none, sToggle, GUILayout.Width(20 * k));
             if (eOn[i] != was) PreviewVisibility();
-            string label = eName[i] + (Overlap(i) != null ? "   ⚠" : "");
+            string label = eName[i] + (Overlap(i) != null || stFixtures[i].Profile == null ? "   ⚠" : "");
             bool sel = selFixture == i;
             if (GUILayout.Toggle(sel, label, sListItem) && !sel)
             {
                 selFixture = i;
-                modeSelectOpen = false;
+                popup = 0;
                 GUIUtility.keyboardControl = 0;
             }
             GUILayout.EndHorizontal();
         }
         GUILayout.EndScrollView();
-        GUILayout.Space(4 * k);
-        // Načíst výchozí sestavu (přepíše seznam v dialogu, uloží se až OK / Použít)
-        GUILayout.Label(Loc.T("presetLoad"), sDim);
+
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button(Loc.T("presetMine"), sButton)) LoadPreset(FixtureEntry.Defaults());
-        if (GUILayout.Button(Loc.T("presetColleague"), sButton)) LoadPreset(FixtureEntry.ColleagueDefaults());
+        if (GUILayout.Button(Loc.T("addFixture"), sButton)) popup = popup == 2 ? 0 : 2;
+        if (Event.current.type == EventType.Repaint && popup == 2) popupAnchor = ToScreen(GUILayoutUtility.GetLastRect());
+        GUI.enabled = stFixtures.Count > 0;
+        if (GUILayout.Button(Loc.T("removeFixture"), sButton) && selFixture < stFixtures.Count)
+        {
+            RemoveEditorRow(selFixture);
+            selFixture = Mathf.Clamp(selFixture, 0, Mathf.Max(0, stFixtures.Count - 1));
+            rigDirty = true;
+            PreviewVisibility();
+        }
+        if (GUILayout.Button("↑", sButton, GUILayout.Width(28 * k))) MoveEditorRow(selFixture, -1);
+        if (GUILayout.Button("↓", sButton, GUILayout.Width(28 * k))) MoveEditorRow(selFixture, 1);
+        GUI.enabled = true;
         GUILayout.EndHorizontal();
+
+        // Načíst výchozí sestavu (přepíše seznam v dialogu, uloží se až OK / Použít)
+        GUILayout.Space(4 * k);
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(Loc.T("presetLoad"), sDim, GUILayout.Width(100 * k));
+        if (GUILayout.Button(Loc.T("presetMine"), sButton)) LoadPreset(RigPresets.Mine());
+        if (GUILayout.Button(Loc.T("presetColleague"), sButton)) LoadPreset(RigPresets.Colleague());
+        GUILayout.EndHorizontal();
+
+        // Sestava jako soubor – poslat kolegovi / přenést na jiný počítač
+        GUILayout.Space(4 * k);
+        GUILayout.Label(Loc.T("rigFile"), sDim);
+        GUILayout.BeginHorizontal();
+        rigName = GUILayout.TextField(rigName, sField);
+        if (GUILayout.Button(Loc.T("rigExport"), sButton, GUILayout.Width(90 * k))) ExportRig();
+        GUILayout.EndHorizontal();
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button(Loc.T("rigImport"), sButton)) { if (popup == 3) popup = 0; else OpenRigPicker(); }
+        if (Event.current.type == EventType.Repaint && popup == 3) popupAnchor = ToScreen(GUILayoutUtility.GetLastRect());
+        if (GUILayout.Button(Loc.T("rigFolder"), sButton)) OpenFolder(RigsDir);
+        GUILayout.EndHorizontal();
+
+        // Profily světel (JSON) – vlastní světla bez nového buildu
+        GUILayout.Space(4 * k);
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(Loc.T("profiles"), sDim, GUILayout.Width(100 * k));
+        if (GUILayout.Button(Loc.T("profilesFolder"), sButton)) OpenFolder(ProfileLibrary.UserDir);
+        if (GUILayout.Button(Loc.T("profilesReload"), sButton)) ReloadProfiles();
+        GUILayout.EndHorizontal();
+        if (ProfileLibrary.Errors.Count > 0) GUILayout.Label(Loc.F("profileErrors", string.Join("; ", ProfileLibrary.Errors)), sWarn);
         GUILayout.EndVertical();
 
         GUILayout.Space(14 * k);
 
         // ---- detail ----
+        detailScroll = GUILayout.BeginScrollView(detailScroll);
         GUILayout.BeginVertical();
-        if (stFixtures.Count > 0)
+        if (stFixtures.Count > 0) DrawFixtureDetail(Mathf.Clamp(selFixture, 0, stFixtures.Count - 1));
+        GUILayout.EndVertical();
+        GUILayout.EndScrollView();
+        GUILayout.EndHorizontal();
+    }
+
+    void DrawFixtureDetail(int i)
+    {
+        var f = stFixtures[i];
+        var p = f.Profile;
+        float lw = 120 * k;
+        if (p == null)
         {
-            int i = Mathf.Clamp(selFixture, 0, stFixtures.Count - 1);
-            var f = stFixtures[i];
-            GUILayout.Label(FixtureEntry.TypeLabel(f.type), sHead);
-            bool wasOn = eOn[i];
-            eOn[i] = GUILayout.Toggle(eOn[i], " " + Loc.T("showInScene"), sToggle);
-            if (eOn[i] != wasOn) PreviewVisibility();
-            GUILayout.Space(8 * k);
-
-            float lw = 120 * k;
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(Loc.T("name"), sLabel, GUILayout.Width(lw));
-            eName[i] = GUILayout.TextField(eName[i], sField);
-            GUILayout.EndHorizontal();
-
-            if (FixtureEntry.IsProp(f.type))
+            GUILayout.Label(eName[i], sHead);
+            GUILayout.Label(Loc.F("profileMissing", f.profile), sWarn);
+            return;
+        }
+        GUILayout.Label(p.Label, sHead);
+        string src = p.source == "builtin" ? Loc.T("srcBuiltin") : p.source == "embedded" ? Loc.T("srcEmbedded") : Path.GetFileName(p.source);
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(Loc.F("profileSource", src), sDim);
+        if (GUILayout.Button(Loc.T("profileEdit"), sButton, GUILayout.ExpandWidth(false)))
+        {
+            try
             {
-                // stůl / booth / repro: bez DMX, jen zobrazení ve scéně
-                GUILayout.Space(8 * k);
-                GUILayout.Label(Loc.T("propHint"), sDim);
-                GUILayout.EndVertical();
-                GUILayout.EndHorizontal();
-                return;
+                var copy = JsonUtility.FromJson<FixtureProfile>(JsonUtility.ToJson(p));
+                string path = ProfileLibrary.SaveToLibrary(copy);
+                Flash(Loc.F("profileSaved", path));
+                OpenFolder(ProfileLibrary.UserDir);
             }
+            catch (Exception e) { settingsError = e.Message; }
+        }
+        GUILayout.EndHorizontal();
+        if (!string.IsNullOrEmpty(p.notes)) GUILayout.Label(p.notes, sDim);
 
+        bool wasOn = eOn[i];
+        eOn[i] = GUILayout.Toggle(eOn[i], " " + Loc.T("showInScene"), sToggle);
+        if (eOn[i] != wasOn) PreviewVisibility();
+        GUILayout.Space(6 * k);
+
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(Loc.T("name"), sLabel, GUILayout.Width(lw));
+        eName[i] = GUILayout.TextField(eName[i], sField);
+        GUILayout.EndHorizontal();
+
+        if (p.IsProp) GUILayout.Label(Loc.T("propHint"), sDim);
+        else
+        {
             GUILayout.BeginHorizontal();
             GUILayout.Label(Loc.T("universe"), sLabel, GUILayout.Width(lw));
             eUni[i] = GUILayout.TextField(eUni[i], sField, GUILayout.Width(60 * k));
@@ -991,29 +1295,80 @@ public class VisualizerMenu : MonoBehaviour
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
 
-            // select režimu kanálů – rozbalená nabídka se kreslí navrch (DrawModePopup), nic neposouvá
-            var modes = FixtureEntry.Modes(f.type);
-            int mi = Mathf.Clamp(e40[i] ? 1 : 0, 0, modes.Length - 1);
+            // select režimu kanálů – rozbalená nabídka se kreslí navrch (DrawPopup)
+            var modes = new string[Mathf.Max(1, p.ModeCount)];
+            for (int m = 0; m < p.ModeCount; m++) modes[m] = p.modes[m].name ?? (p.modes[m].channels + "ch");
+            int mi = Mathf.Clamp(eMode[i], 0, modes.Length - 1);
             GUILayout.BeginHorizontal();
             GUILayout.Label(Loc.T("channelMode"), sLabel, GUILayout.Width(lw));
-            if (GUILayout.Button(modes[mi] + "   ▾", sSelect)) modeSelectOpen = !modeSelectOpen;
-            if (Event.current.type == EventType.Repaint) selectRect = GUILayoutUtility.GetLastRect();
+            if (GUILayout.Button(modes[mi] + "   ▾", sSelect)) popup = popup == 1 ? 0 : 1;
+            if (Event.current.type == EventType.Repaint && popup == 1) popupAnchor = ToScreen(GUILayoutUtility.GetLastRect());
             GUILayout.EndHorizontal();
             selectModes = modes;
             selectIndex = mi;
             selectFor = i;
 
-            GUILayout.Space(8 * k);
-            int ch = FixtureEntry.Channels(f.type, e40[i]);
+            GUILayout.Space(6 * k);
+            int ch = p.Channels(mi);
             if (int.TryParse(eAddr[i], out int a))
                 GUILayout.Label(Loc.F("channelsInfo", ch, a, a + ch - 1), sDim);
             string ov = Overlap(i);
             if (ov != null) GUILayout.Label(Loc.F("overlap", ov), sWarn);
-
-            if (FixtureEntry.HasMovers(f.type)) DrawCalibration(i, f, lw);
         }
-        GUILayout.EndVertical();
+
+        if (!p.IsHazer) DrawPlacement(i, lw);
+        if (p.HasMovers) DrawCalibration(i, f, lw);
+    }
+
+    // Umístění ve scéně: automaticky podle profilu, nebo vlastní souřadnice
+    void DrawPlacement(int i, float lw)
+    {
+        GUILayout.Space(10 * k);
+        GUILayout.Label(Loc.T("placement"), sHead);
+        GUILayout.BeginHorizontal();
+        bool was = eCustom[i];
+        if (GUILayout.Toggle(!eCustom[i], Loc.T("posAuto"), sTab)) eCustom[i] = false;
+        if (GUILayout.Toggle(eCustom[i], Loc.T("customPos"), sTab)) eCustom[i] = true;
         GUILayout.EndHorizontal();
+        if (eCustom[i] && !was && scene != null && i < scene.instances.Count && scene.instances[i].root != null)
+        {
+            // předvyplnit aktuálním místem ve scéně
+            var t = scene.instances[i].root;
+            var lp = t.localPosition; var le = t.localEulerAngles;
+            ePos[i] = new[] { Num(Round(lp.x)), Num(Round(lp.y)), Num(Round(lp.z)), Num(Ang(le.x)), Num(Ang(le.y)), Num(Ang(le.z)) };
+        }
+        if (eCustom[i] != was) ApplyPlacementPreview(i);
+        if (!eCustom[i]) return;
+
+        bool changed = false;
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(Loc.T("posXYZ"), sLabel, GUILayout.Width(lw + 40 * k));
+        for (int c = 0; c < 3; c++) { string o = ePos[i][c]; ePos[i][c] = GUILayout.TextField(ePos[i][c], sField, GUILayout.Width(60 * k)); changed |= o != ePos[i][c]; }
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(Loc.T("rotXYZ"), sLabel, GUILayout.Width(lw + 40 * k));
+        for (int c = 3; c < 6; c++) { string o = ePos[i][c]; ePos[i][c] = GUILayout.TextField(ePos[i][c], sField, GUILayout.Width(60 * k)); changed |= o != ePos[i][c]; }
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+        GUILayout.Label(Loc.T("posHint"), sDim);
+        if (changed) ApplyPlacementPreview(i);
+    }
+
+    static float Round(float v) => Mathf.Round(v * 100f) / 100f;
+    static float Ang(float v) { v = Mathf.Repeat(v + 180f, 360f) - 180f; return Mathf.Round(v * 10f) / 10f; }
+
+    // Náhled umístění hned při psaní (uloží se až OK / Použít)
+    void ApplyPlacementPreview(int i)
+    {
+        var f = stFixtures[i];
+        f.customPos = eCustom[i];
+        var v = new float[6];
+        for (int c = 0; c < 6; c++) if (!TryDeg(ePos[i][c], out v[c])) return;
+        f.pos = new Vector3(v[0], v[1], v[2]);
+        f.rot = new Vector3(v[3], v[4], v[5]);
+        if (scene != null && i < scene.instances.Count && scene.instances[i].entry == f) scene.FinishVisibility();
+        else { rigDirty = true; PreviewVisibility(); }
     }
 
     // Kalibrace moving headů + živý odečet pan/tilt ze SoundSwitche
@@ -1039,8 +1394,8 @@ public class VisualizerMenu : MonoBehaviour
         // živé hodnoty podle aktuálně zadané adresy (i před uložením)
         int.TryParse(eUni[i], out int u);
         int.TryParse(eAddr[i], out int a);
-        var probe = new FixtureEntry { type = f.type, universe = u, address = a, invertPan = eInvPan[i], invertTilt = eInvTilt[i] };
-        float panRange = 540f, tiltRange = f.type == FixtureType.PocketPro ? 230f : 180f;
+        var probe = new FixtureEntry(f.profile, f.name, a, eMode[i]) { universe = u, invertPan = eInvPan[i], invertTilt = eInvTilt[i] };
+        DmxPatch.MoverRanges(f.Profile, out float panRange, out float tiltRange);
         if (patch != null && patch.ReadPanTilt(probe, out int pv, out int tv))
         {
             float pn = pv / 65535f, tn = tv / 65535f;
@@ -1053,13 +1408,14 @@ public class VisualizerMenu : MonoBehaviour
             GUILayout.Label(Loc.F("liveValues", pv, panDeg.ToString("+0;-0;0"), tv, tiltDeg.ToString("+0;-0;0")), sLabel);
 
             // Jedním klikem: aktuální pozice ze SS (např. Stage Center) = střed parketu
-            int typeIndex = 0;
-            for (int j = 0; j < i; j++) if (stFixtures[j].type == f.type) typeIndex++;
-            if (GUILayout.Button(Loc.T("calibCenter"), sButton, GUILayout.ExpandWidth(false))
-                && scene != null && patch.SolveOffsets(probe, typeIndex, scene.danceFloorCenter, out float npo, out float nto))
+            if (GUILayout.Button(Loc.T("calibCenter"), sButton, GUILayout.ExpandWidth(false)) && scene != null)
             {
-                eOffset[i] = npo.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
-                eTiltOffset[i] = nto.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+                if (rigDirty) PreviewVisibility();   // scéna musí odpovídat dialogu
+                if (patch.SolveOffsets(i, probe, scene.danceFloorCenter, out float npo, out float nto))
+                {
+                    eOffset[i] = npo.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+                    eTiltOffset[i] = nto.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+                }
             }
         }
         else GUILayout.Label(Loc.T("liveNone"), sDim);
@@ -1100,7 +1456,7 @@ public class VisualizerMenu : MonoBehaviour
             : (quest.installedVersion == Application.version ? Loc.T("qReinstall") : Loc.F("qUpdate", Application.version));
         if (GUILayout.Button(inst, sBig)) quest.InstallApp();
         GUI.enabled = !busy && ready && quest.installedVersion != null;
-        if (GUILayout.Button(Loc.T("qPush"), sBig)) quest.PushSettings(s);
+        if (GUILayout.Button(Loc.T("qPush"), sBig)) { s.EmbedProfiles(); quest.PushSettings(s); }
         GUI.enabled = true;
         GUILayout.Label(Loc.T("qPushHint"), sDim);
     }

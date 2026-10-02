@@ -23,6 +23,7 @@ Shader "Visualizer/Emissive"
             float _Intensity;
             float4 _Base;
             float4 _Albedo;
+            float4 _RoomLight;      // globální: světlo v sále (lineární), nastavuje SceneBuilder
 
             struct appdata
             {
@@ -48,7 +49,7 @@ Shader "Visualizer/Emissive"
             float4 frag (v2f i) : SV_Target
             {
                 // _Albedo: barva povrchu ve vypnutém stavu osvětlená okolním světlem sálu (mléčný difuzor tub)
-                return float4(_Base.rgb + _Albedo.rgb * unity_AmbientSky.rgb + _Color.rgb * _Intensity, 1);
+                return float4(_Base.rgb + _Albedo.rgb * _RoomLight.rgb + _Color.rgb * _Intensity, 1);
             }
             ENDCG
         }

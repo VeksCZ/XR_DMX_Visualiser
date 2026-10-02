@@ -1,0 +1,17 @@
+{
+  "id": "adj-pro-event-table-2",
+  "name": "Pro Event Table II (bílá lycra)",
+  "manufacturer": "ADJ",
+  "kind": "prop",
+  "placement": "table",
+  "notes": "127 × 61 cm, deska 115,5 cm, bílá lycra dokola.",
+  "prop": {
+    "type": "table",
+    "size": [
+      1.27,
+      1.155,
+      0.61
+    ],
+    "lycra": "#ebebe6"
+  }
+}

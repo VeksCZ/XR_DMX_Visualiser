@@ -19,8 +19,11 @@ if (-not (Test-Path $exe)) { throw "Chybí build ($exe). Nejdřív Tools > Visua
 $stage = Join-Path $build 'release\DMXVisualiser'
 Remove-Item (Join-Path $build 'release') -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory $stage -Force | Out-Null
-Get-ChildItem (Join-Path $build 'Windows') | Where-Object { $_.Name -notlike '*DoNotShip*' -and $_.Name -ne 'settings.json' } | Copy-Item -Destination $stage -Recurse -Force
+# bez uživatelských dat z testování (nastavení, vlastní profily, sestavy)
+Get-ChildItem (Join-Path $build 'Windows') | Where-Object { $_.Name -notlike '*DoNotShip*' -and $_.Name -notlike 'settings*.json' -and $_.Name -notin 'Profiles', 'Rigs' } | Copy-Item -Destination $stage -Recurse -Force
 Copy-Item (Join-Path $root 'Tools\Quest\*') $stage -Force   # skript pro instalaci do Questu
+New-Item -ItemType Directory (Join-Path $stage 'Profiles') -Force | Out-Null
+Copy-Item (Join-Path $root 'Docs\PROFILES.md') (Join-Path $stage 'Profiles\README.md') -Force   # popis formátu profilů
 
 $zip = Join-Path $build "DMXVisualiser-$tag-win64.zip"
 Remove-Item $zip -ErrorAction SilentlyContinue

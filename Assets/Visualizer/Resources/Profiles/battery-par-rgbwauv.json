@@ -1,0 +1,81 @@
+{
+  "id": "battery-par-rgbwauv",
+  "name": "Battery Par RGBWA+UV (uplight)",
+  "manufacturer": "",
+  "kind": "light",
+  "placement": "uplight",
+  "notes": "Čínský wireless battery par 6× RGBWA+UV, Mode 2 (10ch).",
+  "parts": [
+    {
+      "type": "par",
+      "housing": "box",
+      "box": [
+        0.11,
+        0.11,
+        0.2
+      ],
+      "size": 0.1,
+      "beam": 25,
+      "field": 40,
+      "beamLength": 5
+    }
+  ],
+  "modes": [
+    {
+      "name": "10ch (Mode 2)",
+      "channels": 10,
+      "controls": [
+        {
+          "fn": "dimmer",
+          "ch": 1,
+          "part": 0
+        },
+        {
+          "fn": "red",
+          "ch": 2,
+          "part": 0
+        },
+        {
+          "fn": "green",
+          "ch": 3,
+          "part": 0
+        },
+        {
+          "fn": "blue",
+          "ch": 4,
+          "part": 0
+        },
+        {
+          "fn": "white",
+          "ch": 5,
+          "part": 0
+        },
+        {
+          "fn": "amber",
+          "ch": 6,
+          "part": 0
+        },
+        {
+          "fn": "uv",
+          "ch": 7,
+          "part": 0
+        },
+        {
+          "fn": "strobe",
+          "ch": 8,
+          "part": 0
+        },
+        {
+          "fn": "none",
+          "ch": 9,
+          "part": 0
+        },
+        {
+          "fn": "none",
+          "ch": 10,
+          "part": 0
+        }
+      ]
+    }
+  ]
+}

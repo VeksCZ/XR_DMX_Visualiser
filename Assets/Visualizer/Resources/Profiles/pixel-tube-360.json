@@ -1,0 +1,257 @@
+{
+  "id": "pixel-tube-360",
+  "name": "LED Pixel Tube 360 RGBWA",
+  "manufacturer": "",
+  "kind": "light",
+  "placement": "tube",
+  "notes": "Mode 1 = 12ch (barvy, makra, efekty), Mode 2 = 40ch (8 pixelů RGBWA). Mléčný difuzor, černý stojánek s trojnožkou.",
+  "parts": [
+    {
+      "type": "tube",
+      "length": 1.0,
+      "segments": 16,
+      "diameter": 0.045
+    }
+  ],
+  "shapes": [
+    {
+      "shape": "cylinder",
+      "pos": [
+        0,
+        -0.15,
+        0
+      ],
+      "size": [
+        0.025,
+        0.1,
+        0.025
+      ]
+    },
+    {
+      "shape": "cylinder",
+      "pos": [
+        0.0,
+        -0.21,
+        0.06
+      ],
+      "size": [
+        0.012,
+        0.14,
+        0.012
+      ],
+      "rot": [
+        -53.97,
+        0,
+        0
+      ]
+    },
+    {
+      "shape": "cylinder",
+      "pos": [
+        0.052,
+        -0.21,
+        -0.03
+      ],
+      "size": [
+        0.012,
+        0.14,
+        0.012
+      ],
+      "rot": [
+        -53.97,
+        120,
+        0
+      ]
+    },
+    {
+      "shape": "cylinder",
+      "pos": [
+        -0.052,
+        -0.21,
+        -0.03
+      ],
+      "size": [
+        0.012,
+        0.14,
+        0.012
+      ],
+      "rot": [
+        -53.97,
+        240,
+        0
+      ]
+    },
+    {
+      "shape": "cube",
+      "pos": [
+        0,
+        -0.05,
+        0
+      ],
+      "size": [
+        0.06,
+        0.1,
+        0.06
+      ]
+    }
+  ],
+  "modes": [
+    {
+      "name": "12ch (Mode 1)",
+      "channels": 12,
+      "controls": [
+        {
+          "fn": "dimmer",
+          "ch": 1,
+          "part": 0
+        },
+        {
+          "fn": "strobe",
+          "ch": 2,
+          "part": 0
+        },
+        {
+          "fn": "colorMacro",
+          "ch": 3,
+          "part": 0,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 10,
+              "type": "off"
+            },
+            {
+              "from": 11,
+              "to": 255,
+              "type": "slots",
+              "colors": [
+                "#ff0000",
+                "#ff7300",
+                "#ffff00",
+                "#80ff00",
+                "#00ff00",
+                "#00ff99",
+                "#00ffff",
+                "#0080ff",
+                "#0000ff",
+                "#8000ff",
+                "#ff00ff",
+                "#ff4d99",
+                "#ffffff",
+                "#ffcc8c",
+                "#ff991a"
+              ]
+            }
+          ]
+        },
+        {
+          "fn": "background",
+          "ch": 4,
+          "part": 0,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 10,
+              "type": "off"
+            },
+            {
+              "from": 11,
+              "to": 255,
+              "type": "slots",
+              "colors": [
+                "#ff0000",
+                "#ff7300",
+                "#ffff00",
+                "#80ff00",
+                "#00ff00",
+                "#00ff99",
+                "#00ffff",
+                "#0080ff",
+                "#0000ff",
+                "#8000ff",
+                "#ff00ff",
+                "#ff4d99",
+                "#ffffff",
+                "#ffcc8c",
+                "#ff991a"
+              ]
+            }
+          ]
+        },
+        {
+          "fn": "none",
+          "ch": 5,
+          "part": 0
+        },
+        {
+          "fn": "effect",
+          "ch": 6,
+          "part": 0,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 10,
+              "type": "off"
+            },
+            {
+              "from": 11,
+              "to": 214,
+              "type": "effects",
+              "a": 0,
+              "b": 59
+            },
+            {
+              "from": 215,
+              "to": 255,
+              "type": "autoEffect",
+              "a": 8
+            }
+          ]
+        },
+        {
+          "fn": "effectSpeed",
+          "ch": 7,
+          "part": 0
+        },
+        {
+          "fn": "red",
+          "ch": 8,
+          "part": 0
+        },
+        {
+          "fn": "green",
+          "ch": 9,
+          "part": 0
+        },
+        {
+          "fn": "blue",
+          "ch": 10,
+          "part": 0
+        },
+        {
+          "fn": "white",
+          "ch": 11,
+          "part": 0
+        },
+        {
+          "fn": "amber",
+          "ch": 12,
+          "part": 0
+        }
+      ]
+    },
+    {
+      "name": "40ch (Mode 2, 8 px)",
+      "channels": 40,
+      "controls": [
+        {
+          "fn": "pixels",
+          "ch": 1,
+          "part": 0,
+          "count": 8,
+          "layout": "RGBWA"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,287 @@
+{
+  "id": "adj-pocket-pro",
+  "name": "Pocket Pro",
+  "manufacturer": "ADJ",
+  "kind": "light",
+  "placement": "tableCorner",
+  "notes": "13ch podle Open Fixture Library. 25 W, 15°, pan 540°, tilt 230°.",
+  "parts": [
+    {
+      "type": "mover",
+      "name": "Hlava",
+      "beam": 15,
+      "beamLength": 10,
+      "intensity": 130,
+      "brightness": 1.5,
+      "panRange": 540,
+      "tiltRange": 230
+    }
+  ],
+  "modes": [
+    {
+      "name": "13ch",
+      "channels": 13,
+      "controls": [
+        {
+          "fn": "pan",
+          "ch": 1,
+          "part": 0,
+          "fine": 2
+        },
+        {
+          "fn": "tilt",
+          "ch": 3,
+          "part": 0,
+          "fine": 4
+        },
+        {
+          "fn": "color",
+          "ch": 5,
+          "part": 0,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 7,
+              "type": "color",
+              "color": "#ffffff"
+            },
+            {
+              "from": 8,
+              "to": 14,
+              "type": "color",
+              "color": "#ff0000"
+            },
+            {
+              "from": 15,
+              "to": 21,
+              "type": "color",
+              "color": "#ff800d"
+            },
+            {
+              "from": 22,
+              "to": 28,
+              "type": "color",
+              "color": "#ffff00"
+            },
+            {
+              "from": 29,
+              "to": 35,
+              "type": "color",
+              "color": "#00ff00"
+            },
+            {
+              "from": 36,
+              "to": 42,
+              "type": "color",
+              "color": "#731aff"
+            },
+            {
+              "from": 43,
+              "to": 49,
+              "type": "color",
+              "color": "#0000ff"
+            },
+            {
+              "from": 50,
+              "to": 56,
+              "type": "color",
+              "color": "#ff66bf"
+            },
+            {
+              "from": 57,
+              "to": 66,
+              "type": "split",
+              "color": "#ffffff",
+              "color2": "#ff0000"
+            },
+            {
+              "from": 67,
+              "to": 76,
+              "type": "split",
+              "color": "#ff0000",
+              "color2": "#ff800d"
+            },
+            {
+              "from": 77,
+              "to": 86,
+              "type": "split",
+              "color": "#ff800d",
+              "color2": "#ffff00"
+            },
+            {
+              "from": 87,
+              "to": 96,
+              "type": "split",
+              "color": "#ffff00",
+              "color2": "#00ff00"
+            },
+            {
+              "from": 97,
+              "to": 106,
+              "type": "split",
+              "color": "#00ff00",
+              "color2": "#731aff"
+            },
+            {
+              "from": 107,
+              "to": 116,
+              "type": "split",
+              "color": "#731aff",
+              "color2": "#0000ff"
+            },
+            {
+              "from": 117,
+              "to": 127,
+              "type": "split",
+              "color": "#0000ff",
+              "color2": "#ff66bf"
+            },
+            {
+              "from": 128,
+              "to": 189,
+              "type": "rainbow",
+              "a": 0.3
+            },
+            {
+              "from": 190,
+              "to": 193,
+              "type": "color",
+              "color": "#ffffff"
+            },
+            {
+              "from": 194,
+              "to": 255,
+              "type": "rainbow",
+              "a": 0.3
+            }
+          ]
+        },
+        {
+          "fn": "gobo",
+          "ch": 6,
+          "part": 0,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 63,
+              "type": "gobos",
+              "a": 0,
+              "b": 7,
+              "step": 8
+            },
+            {
+              "from": 64,
+              "to": 127,
+              "type": "gobos",
+              "a": 0,
+              "b": 7,
+              "step": 8
+            },
+            {
+              "from": 128,
+              "to": 255,
+              "type": "cycle",
+              "a": 8,
+              "b": 2
+            }
+          ]
+        },
+        {
+          "fn": "shutter",
+          "ch": 7,
+          "part": 0,
+          "ranges": [
+            {
+              "from": 0,
+              "to": 7,
+              "type": "closed"
+            },
+            {
+              "from": 8,
+              "to": 15,
+              "type": "open"
+            },
+            {
+              "from": 16,
+              "to": 131,
+              "type": "strobe",
+              "a": 1,
+              "b": 20
+            },
+            {
+              "from": 132,
+              "to": 139,
+              "type": "open"
+            },
+            {
+              "from": 140,
+              "to": 181,
+              "type": "rampUp",
+              "a": 0.5,
+              "b": 4
+            },
+            {
+              "from": 182,
+              "to": 189,
+              "type": "open"
+            },
+            {
+              "from": 190,
+              "to": 231,
+              "type": "rampDown",
+              "a": 0.5,
+              "b": 4
+            },
+            {
+              "from": 232,
+              "to": 239,
+              "type": "open"
+            },
+            {
+              "from": 240,
+              "to": 247,
+              "type": "random",
+              "a": 2,
+              "b": 15
+            },
+            {
+              "from": 248,
+              "to": 255,
+              "type": "open"
+            }
+          ]
+        },
+        {
+          "fn": "dimmer",
+          "ch": 8,
+          "part": 0
+        },
+        {
+          "fn": "ptMacro",
+          "ch": 9,
+          "part": 0
+        },
+        {
+          "fn": "ptMacroSpeed",
+          "ch": 10,
+          "part": 0
+        },
+        {
+          "fn": "none",
+          "ch": 11,
+          "part": 0
+        },
+        {
+          "fn": "ptSpeed",
+          "ch": 12,
+          "part": 0
+        },
+        {
+          "fn": "none",
+          "ch": 13,
+          "part": 0
+        }
+      ]
+    }
+  ]
+}

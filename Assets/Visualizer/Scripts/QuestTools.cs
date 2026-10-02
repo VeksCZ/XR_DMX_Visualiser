@@ -265,6 +265,7 @@ public class QuestTools : MonoBehaviour
             try { q = JsonUtility.FromJson<VisualizerSettings>(File.ReadAllText(local)); } catch { }
         if (q == null) q = new VisualizerSettings { cameraPreset = 0 };
         q.fixtures = pc.fixtures;
+        q.customProfiles = pc.customProfiles;   // vlastní profily světel jdou s sestavou
         q.hazeBuildRate = pc.hazeBuildRate;
         q.hazeDecay = pc.hazeDecay;
         q.roomLight = pc.roomLight;
