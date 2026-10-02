@@ -450,7 +450,19 @@ public class VisualizerMenu : MonoBehaviour
 #endif
     }
 
-    void OnApplicationQuit() { if (s != null) s.Save(); }
+    void OnApplicationQuit()
+    {
+        if (s != null) s.Save();
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        // Pojistka: nastavení je uložené – kdyby se ukončování Unity zaseklo (vlákna, sokety, ovladač GPU),
+        // proces se po 3 s ukončí sám, aby Windows nehlásily „program neodpovídá“.
+        new System.Threading.Thread(() =>
+        {
+            System.Threading.Thread.Sleep(3000);
+            try { System.Diagnostics.Process.GetCurrentProcess().Kill(); } catch { }
+        }) { IsBackground = true, Name = "QuitWatchdog" }.Start();
+#endif
+    }
 
     // ------------------------------------------------------------------
     // Menu

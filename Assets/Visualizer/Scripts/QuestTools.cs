@@ -69,10 +69,24 @@ public class QuestTools : MonoBehaviour
                 var o = p.StandardOutput.ReadToEndAsync();
                 var e = p.StandardError.ReadToEndAsync();
                 if (!p.WaitForExit(timeoutMs)) { try { p.Kill(); } catch { } return (-1, "timeout"); }
-                return (p.ExitCode, (o.Result + "\n" + e.Result).Trim());
+                // výstup dočíst s limitem – kdyby rouru držel jiný proces (adb démon), nečekat věčně
+                string so = o.Wait(3000) ? o.Result : "", se = e.Wait(3000) ? e.Result : "";
+                return (p.ExitCode, (so + "\n" + se).Trim());
             }
         }
         catch (Exception ex) { return (-1, ex.Message); }
+    }
+
+    // ADB server (démon) se musí spustit bez přesměrovaného výstupu – jinak zdědí rouru
+    // a čtení výstupu (i ukončení aplikace) by čekalo, dokud démon neskončí.
+    void StartAdbServer()
+    {
+        try
+        {
+            using (var p = Process.Start(new ProcessStartInfo(adbPath, "start-server") { UseShellExecute = false, CreateNoWindow = true }))
+                p.WaitForExit(15000);
+        }
+        catch (Exception e) { Debug.LogWarning("adb start-server: " + e.Message); }
     }
 
     (int code, string output) Adb(string args, int timeoutMs = 30000) =>
@@ -95,6 +109,7 @@ public class QuestTools : MonoBehaviour
         adbPath = FindAdb();
         device = deviceModel = deviceState = installedVersion = null;
         if (adbPath == null) { Set(Loc.T("qNoAdb"), true); return; }
+        StartAdbServer();
         var r = Run(adbPath, "devices -l", 20000);
         if (r.code != 0) { Set(r.output, true); return; }
         foreach (var line in r.output.Split('\n'))
