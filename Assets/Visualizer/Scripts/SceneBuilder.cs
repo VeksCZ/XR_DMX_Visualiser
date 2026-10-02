@@ -72,9 +72,9 @@ public class SceneBuilder : MonoBehaviour
                 go.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // svítí dolů
                 var l = go.AddComponent<Light>();
                 l.type = LightType.Spot;
-                l.spotAngle = 140f;
-                l.innerSpotAngle = 60f;
-                l.range = ceiling + 6f;
+                l.spotAngle = 179f;       // skoro polokoule jako skutečné stropní svítidlo – osvítí i stěny až ke stropu
+                l.innerSpotAngle = 150f;
+                l.range = Mathf.Max(roomWidth, roomDepth) + 2f;
                 l.color = warm;
                 l.shadows = LightShadows.None;
                 l.intensity = 0f;
@@ -91,11 +91,11 @@ public class SceneBuilder : MonoBehaviour
         foreach (var l in houseLights)
         {
             l.enabled = v > 0.001f;
-            l.intensity = v * 40f;
+            l.intensity = v * 90f;
         }
-        foreach (var f in houseFixtures) VisUtil.SetColor(f, warm, v * 6f);
-        // rozptýlené světlo odražené od stěn a stropu, aby nebyly úplně černé kouty
-        RenderSettings.ambientLight = darkAmbient + warm * (v * 0.35f);
+        foreach (var f in houseFixtures) VisUtil.SetColor(f, warm, v * 8f);
+        // rozptýlené světlo odražené od stěn a stropu, aby nebyly úplně černé kouty ani strop
+        RenderSettings.ambientLight = darkAmbient + warm * (v * 0.6f);
     }
 
     void Update()
