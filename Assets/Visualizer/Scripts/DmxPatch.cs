@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // Pořadí neměnit – uloží se jako číslo do settings.json. Nové typy jen na konec.
-public enum FixtureType { GigBarMoveILS, BatteryPar, PixelTube, Hazer, PocketPro, BlackPar, DerbyStrobe, DoubleHelix }
+public enum FixtureType { GigBarMoveILS, BatteryPar, PixelTube, Hazer, PocketPro, BlackPar, DerbyStrobe, DoubleHelix,
+    // vybavení bez DMX (jen ve scéně)
+    EventTable, DJBooth, Speaker12, Speaker14 }
 
 // Jedno světlo v patchi. Universe je 1-based jako v SoundSwitchi (1 = Art-Net universe 0).
 [Serializable]
@@ -23,6 +25,8 @@ public class FixtureEntry
     public bool invertTilt;
 
     public static bool HasMovers(FixtureType t) => t == FixtureType.GigBarMoveILS || t == FixtureType.PocketPro;
+    // Stůl, booth, repro – nemají DMX, jen se zobrazují ve scéně
+    public static bool IsProp(FixtureType t) => t >= FixtureType.EventTable;
 
     public FixtureEntry() { }
     public FixtureEntry(FixtureType t, string n, int addr) { type = t; name = n; address = addr; }
@@ -56,7 +60,7 @@ public class FixtureEntry
             case FixtureType.DerbyStrobe: return 6;
             case FixtureType.DoubleHelix: return 18;
             case FixtureType.Hazer: return ch40 ? 2 : 1;
-            default: return 1;
+            default: return IsProp(t) ? 0 : 1;
         }
     }
 
@@ -71,6 +75,10 @@ public class FixtureEntry
             case FixtureType.BlackPar: return "Light4Me Black Par 30x3W";
             case FixtureType.DerbyStrobe: return "BeamZ DerbyStrobe";
             case FixtureType.DoubleHelix: return "BeamZ MHL820 Double Helix";
+            case FixtureType.EventTable: return "ADJ Pro Event Table II (bílá lycra)";
+            case FixtureType.DJBooth: return "Vonyx DB3 Pro DJ Booth (černá lycra)";
+            case FixtureType.Speaker12: return "FBT ProMaxX 12A (bílá lycra na stativu)";
+            case FixtureType.Speaker14: return "FBT ProMaxX 14A (černý stativ)";
             default: return "Hazer";
         }
     }
@@ -92,6 +100,20 @@ public class FixtureEntry
         // 2× Double Helix na rampě uprostřed; v SS je nepoužívá, adresy jsou jen volné na konci universa
         new FixtureEntry(FixtureType.DoubleHelix, "Helix 1 (nepoužívá)", 477),
         new FixtureEntry(FixtureType.DoubleHelix, "Helix 2 (nepoužívá)", 495),
+    }.AddAll(ColleagueProps());
+
+    public static List<FixtureEntry> OwnProps() => new List<FixtureEntry>
+    {
+        new FixtureEntry(FixtureType.EventTable, "DJ stůl", 1),
+        new FixtureEntry(FixtureType.Speaker12, "Repro L", 1),
+        new FixtureEntry(FixtureType.Speaker12, "Repro R", 1),
+    };
+
+    public static List<FixtureEntry> ColleagueProps() => new List<FixtureEntry>
+    {
+        new FixtureEntry(FixtureType.DJBooth, "DJ booth", 1),
+        new FixtureEntry(FixtureType.Speaker14, "Repro L", 1),
+        new FixtureEntry(FixtureType.Speaker14, "Repro R", 1),
     };
 
     public static List<FixtureEntry> Defaults() => new List<FixtureEntry>
@@ -109,7 +131,12 @@ public class FixtureEntry
         new FixtureEntry(FixtureType.PixelTube, "Tuba 3", 400),
         new FixtureEntry(FixtureType.PixelTube, "Tuba 4", 450),
         new FixtureEntry(FixtureType.Hazer, "Hurricane Haze 1DX", 100),
-    };
+    }.AddAll(OwnProps());
+}
+
+static class ListExt
+{
+    public static List<T> AddAll<T>(this List<T> a, List<T> b) { a.AddRange(b); return a; }
 }
 
 // Mapování DMX kanálů na světla ve scéně podle profilů ze SoundSwitch projektu 2502.ssproj.

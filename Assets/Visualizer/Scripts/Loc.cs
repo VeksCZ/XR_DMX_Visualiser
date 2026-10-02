@@ -44,6 +44,7 @@ public static class Loc
         { "tabLights", new[] { "Světla", "Fixtures" } },
         { "tabArtNet", new[] { "Art-Net", "Art-Net" } },
         { "tabQuest", new[] { "Quest", "Quest" } },
+        { "propHint", new[] { "Vybavení bez DMX – jen se zobrazuje ve scéně. Hlavy Pocket Pro se posadí na rohy zobrazeného stolu.", "Equipment without DMX – shown in the scene only. Pocket Pro heads sit on the corners of the shown table." } },
         { "qTitle", new[] { "Meta Quest – aplikace a nastavení", "Meta Quest – app and settings" } },
         { "qHint", new[] {
             "Připoj Quest kabelem USB (vývojářský režim zapnutý) a v brýlích potvrď povolení USB ladění.",

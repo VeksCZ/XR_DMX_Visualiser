@@ -142,9 +142,44 @@ public class SceneBuilder : MonoBehaviour
         VisUtil.Prim(PrimitiveType.Cube, room, fc, new Vector3(0.4f, 0.002f, 0.03f), markMat);
         VisUtil.Prim(PrimitiveType.Cube, room, fc, new Vector3(0.03f, 0.002f, 0.4f), markMat);
 
-        // DJ stolek
-        tableMatLight = VisUtil.LitMat(new Color(0.8f, 0.8f, 0.8f));
-        djTable = VisUtil.Prim(PrimitiveType.Cube, room, new Vector3(0, 0.45f, backZ + 2f), new Vector3(1.8f, 0.9f, 0.7f), tableMatLight).GetComponent<Renderer>();
+        BuildTables(room);
+    }
+
+    // ---- DJ stoly (bez DMX, zobrazují se podle seznamu) ----
+    // ADJ Pro Event Table II: 127 × 61 cm, deska 115,5 cm, rám z trubek Ø32 mm, bílá lycra (scrim) dokola.
+    // Vonyx DB3 Pro: 146 × 73 cm, deska ~93 cm, hliníkový rám s černou lycrou na čele a bocích.
+    [HideInInspector] public Transform eventTable, djBooth;
+    public static readonly Vector3 EventTableSize = new Vector3(1.27f, 1.155f, 0.61f);
+    public static readonly Vector3 BoothSize = new Vector3(1.46f, 0.93f, 0.73f);
+    float TableZ => backZ + 2f;   // střed stolu
+
+    void BuildTables(Transform room)
+    {
+        var white = VisUtil.LitMat(new Color(0.93f, 0.93f, 0.91f));
+        var black = VisUtil.LitMat(new Color(0.03f, 0.03f, 0.035f));
+        eventTable = Table(room, "ADJ Pro Event Table II", EventTableSize, white, VisUtil.BodyMat);
+        djBooth = Table(room, "Vonyx DB3 Pro", BoothSize, black, VisUtil.BodyMat);
+        eventTable.gameObject.SetActive(false);
+        djBooth.gameObject.SetActive(false);
+    }
+
+    // Stůl potažený lycrou: čelo a boky z látky (kousek nad zemí), nahoře černá deska, vzadu otevřené
+    Transform Table(Transform parent, string name, Vector3 size, Material lycra, Material top)
+    {
+        var t = new GameObject(name).transform;
+        t.SetParent(parent, false);
+        t.localPosition = new Vector3(0, 0, TableZ);
+        float w = size.x, h = size.y, d = size.z, th = 0.01f, low = 0.02f;
+        float ph = h - 0.03f - low;          // výška lycry
+        float py = low + ph * 0.5f;
+        VisUtil.Prim(PrimitiveType.Cube, t, new Vector3(0, py, d * 0.5f), new Vector3(w, ph, th), lycra);             // čelo
+        VisUtil.Prim(PrimitiveType.Cube, t, new Vector3(-w * 0.5f, py, 0), new Vector3(th, ph, d), lycra);            // boky
+        VisUtil.Prim(PrimitiveType.Cube, t, new Vector3(w * 0.5f, py, 0), new Vector3(th, ph, d), lycra);
+        VisUtil.Prim(PrimitiveType.Cube, t, new Vector3(0, h - 0.015f, 0), new Vector3(w + 0.02f, 0.03f, d + 0.02f), top); // deska
+        // zadní nohy rámu (jsou vidět z pohledu DJ)
+        foreach (float x in new[] { -w * 0.5f + 0.03f, w * 0.5f - 0.03f })
+            VisUtil.Prim(PrimitiveType.Cylinder, t, new Vector3(x, h * 0.5f, -d * 0.5f + 0.03f), new Vector3(0.032f, h * 0.5f, 0.032f), VisUtil.BodyMat);
+        return t;
     }
 
     void BuildRig()
@@ -178,7 +213,8 @@ public class SceneBuilder : MonoBehaviour
         }
 
         // 4 tuby po stranách stolku, svisle na nízkých stojánkách
-        float[] tx = { -2.6f, -1.6f, 1.6f, 2.6f };
+        // rozestavení po stranách: stůl – tuba – repro – tuba (na obou stranách stejně)
+        float[] tx = { -2.6f, -1.0f, 1.0f, 2.6f };
         for (int i = 0; i < 4; i++)
         {
             var go = new GameObject("Tube " + (i + 1));
@@ -216,13 +252,12 @@ public class SceneBuilder : MonoBehaviour
     // Kolegova rampa (černá): dvě kulaté stativové tyče jako prodloužení zadních nohou DJ stolku,
     // nahoře dvě hranaté tyče nad sebou spojené 4 svislými výztuhami.
     // Derby nahoře na krajích, pary visí pod spodní tyčí blíž ke středu, helixy uprostřed nahoře.
-    Renderer djTable;
-    Material tableMatLight;
 
     void BuildColleagueTruss(Transform rig)
     {
-        const float h = 2.3f, legX = 0.87f, prof = 0.04f, gap = 0.25f;   // výška horní tyče, profil 4×4 cm, rozteč tyčí
-        float tz = backZ + 2f - 0.35f + 0.03f;   // v zadních nohách stolku
+        const float h = 2.3f, prof = 0.04f, gap = 0.25f;   // výška horní tyče, profil 4×4 cm, rozteč tyčí
+        float legX = BoothSize.x * 0.5f - 0.03f;            // v zadních nohách Vonyx DB3
+        float tz = TableZ - BoothSize.z * 0.5f + 0.03f;
         float barLow = h - gap;
         truss = new GameObject("Truss (kolega)").transform;
         truss.SetParent(rig, false);
@@ -232,7 +267,7 @@ public class SceneBuilder : MonoBehaviour
         float len = 2 * legX + 0.1f;
         VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(0, h - prof * 0.5f, tz), new Vector3(len, prof, prof), m);        // horní tyč
         VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(0, barLow - prof * 0.5f, tz), new Vector3(len, prof, prof), m);   // spodní tyč
-        foreach (float x in new[] { -0.6f, -0.2f, 0.2f, 0.6f })                                                                  // výztuhy
+        foreach (float x in new[] { -0.66f * legX, -0.22f * legX, 0.22f * legX, 0.66f * legX })                                                                  // výztuhy
             VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(x, barLow + gap * 0.5f - prof * 0.5f, tz), new Vector3(0.025f, gap - prof, 0.025f), m);
         const float bar = gap + prof;   // pary visí pod spodní tyčí
 
@@ -242,7 +277,7 @@ public class SceneBuilder : MonoBehaviour
             // derby nahoře na krajích, míří dopředu na parket (lehce dolů)
             var dgo = new GameObject(i == 0 ? "DerbyStrobe L" : "DerbyStrobe R");
             dgo.transform.SetParent(truss, false);
-            dgo.transform.localPosition = new Vector3(s * 0.75f, h + 0.07f, tz);
+            dgo.transform.localPosition = new Vector3(s * 0.6f, h + 0.07f, tz);
             dgo.transform.localEulerAngles = new Vector3(15f, 0, 0);
             var ds = dgo.AddComponent<DerbyStrobe>();
             ds.Build();
@@ -252,9 +287,9 @@ public class SceneBuilder : MonoBehaviour
             // pary visí pod příčkou blíž ke středu, míří dolů před stolek
             var pgo = new GameObject(i == 0 ? "Black Par L" : "Black Par R");
             pgo.transform.SetParent(truss, false);
-            pgo.transform.localPosition = new Vector3(s * 0.55f, h - bar - 0.13f, tz + 0.02f);
+            pgo.transform.localPosition = new Vector3(s * 0.42f, h - bar - 0.13f, tz + 0.02f);
             pgo.transform.localEulerAngles = new Vector3(40f, 0, 0);
-            VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(s * 0.55f, h - bar - 0.04f, tz), new Vector3(0.22f, 0.02f, 0.04f), VisUtil.BodyMat); // třmen
+            VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(s * 0.42f, h - bar - 0.04f, tz), new Vector3(0.22f, 0.02f, 0.04f), VisUtil.BodyMat); // třmen
             var p = pgo.AddComponent<ParLight>();
             p.housing = ParLight.Housing.Round;
             p.size = 0.19f;
@@ -286,11 +321,30 @@ public class SceneBuilder : MonoBehaviour
         foreach (var x in blackPars) if (x != null) x.gameObject.SetActive(false);
         foreach (var x in derbyStrobes) if (x != null) x.gameObject.SetActive(false);
         foreach (var x in helixes) if (x != null) x.gameObject.SetActive(false);
+        if (eventTable != null) eventTable.gameObject.SetActive(false);
+        if (djBooth != null) djBooth.gameObject.SetActive(false);
+        foreach (var x in speakers12) if (x != null) x.gameObject.SetActive(false);
+        foreach (var x in speakers14) if (x != null) x.gameObject.SetActive(false);
+    }
+
+    // Hlavy Pocket Pro na předních rozích zobrazeného stolu (Event Table / DB3), jinak výchozí místo
+    void PlacePockets()
+    {
+        Vector3 size = new Vector3(1.8f, 0.9f, 0.7f);
+        if (eventTable != null && eventTable.gameObject.activeSelf) size = EventTableSize;
+        else if (djBooth != null && djBooth.gameObject.activeSelf) size = BoothSize;
+        for (int i = 0; i < pockets.Length; i++)
+        {
+            if (pockets[i] == null) continue;
+            float s = i == 0 ? -1f : 1f;
+            pockets[i].transform.localPosition = new Vector3(s * (size.x * 0.5f - 0.1f), size.y, TableZ + size.z * 0.5f - 0.1f);
+        }
     }
 
     // Rampa se ukáže, jen když na ní něco je; jeden helix stojí přesně uprostřed, dva vedle sebe
     public void FinishVisibility()
     {
+        PlacePockets();
         if (truss == null) return;
         bool any = false;
         foreach (var x in blackPars) any |= x != null && x.gameObject.activeSelf;
@@ -304,11 +358,6 @@ public class SceneBuilder : MonoBehaviour
             if (c.GetComponent<ParLight>() == null && c.GetComponent<DerbyStrobe>() == null && c.GetComponent<Helix>() == null)
                 c.gameObject.SetActive(any);
         }
-        // kolegův stůl je černý jako jeho rampa
-        if (djTable != null) djTable.sharedMaterial = any ? VisUtil.BodyMat : tableMatLight;
-        // reprobedny podle sestavy: kolega 14" bez lycry, moje 12" s bílou lycrou
-        if (speakersOwn != null) speakersOwn.gameObject.SetActive(!any);
-        if (speakersColleague != null) speakersColleague.gameObject.SetActive(any);
         if (helixes[0] != null) helixes[0].transform.localPosition = new Vector3(hc > 1 ? -0.25f : 0f, helixes[0].transform.localPosition.y, helixes[0].transform.localPosition.z);
         if (helixes[1] != null) helixes[1].transform.localPosition = new Vector3(0.25f, helixes[1].transform.localPosition.y, helixes[1].transform.localPosition.z);
     }
@@ -316,24 +365,22 @@ public class SceneBuilder : MonoBehaviour
     // ---- Reproduktory ----
     // Moje: 2× FBT ProMaxX 12A na trojnožce s bílou lycrou (scrim přes stativ, repro nad ní zůstává vidět).
     // Kolega: 2× FBT ProMaxX 14A na černé trojnožce bez lycry. Rozměry přibližné (š × v × h).
-    Transform speakersOwn, speakersColleague;
+    [HideInInspector] public Transform[] speakers12 = new Transform[2], speakers14 = new Transform[2];
 
     void BuildSpeakers(Transform rig)
     {
-        float z = backZ + 2.2f, x = 3.3f;
-        speakersOwn = new GameObject("Speakers (moje)").transform;
-        speakersOwn.SetParent(rig, false);
-        speakersColleague = new GameObject("Speakers (kolega)").transform;
-        speakersColleague.SetParent(rig, false);
-        foreach (float s in new[] { -1f, 1f })
+        float z = backZ + 1.8f, x = 1.8f;   // mezi tubami (±1,0 a ±2,6)
+        for (int i = 0; i < 2; i++)
         {
-            Speaker(speakersOwn, new Vector3(s * x, 0, z), s, new Vector3(0.39f, 0.62f, 0.35f), 1.55f, true);
-            Speaker(speakersColleague, new Vector3(s * x, 0, z), s, new Vector3(0.43f, 0.70f, 0.40f), 1.5f, false);
+            float s = i == 0 ? -1f : 1f;
+            speakers12[i] = Speaker(rig, new Vector3(s * x, 0, z), s, new Vector3(0.39f, 0.62f, 0.35f), 1.55f, true);
+            speakers14[i] = Speaker(rig, new Vector3(s * x, 0, z), s, new Vector3(0.43f, 0.70f, 0.40f), 1.5f, false);
+            speakers12[i].gameObject.SetActive(false);
+            speakers14[i].gameObject.SetActive(false);
         }
-        speakersColleague.gameObject.SetActive(false);
     }
 
-    void Speaker(Transform parent, Vector3 pos, float side, Vector3 size, float standH, bool lycra)
+    Transform Speaker(Transform parent, Vector3 pos, float side, Vector3 size, float standH, bool lycra)
     {
         var t = Tripod(parent, pos, standH);
         // natočit mírně k parketu
@@ -345,7 +392,7 @@ public class SceneBuilder : MonoBehaviour
         // kovová mřížka zepředu (lehce světlejší) a logo pás
         var grille = VisUtil.LitMat(new Color(0.11f, 0.11f, 0.12f));
         VisUtil.Prim(PrimitiveType.Cube, box, new Vector3(0, -size.y * 0.06f, size.z * 0.5f + 0.003f), new Vector3(size.x * 0.9f, size.y * 0.82f, 0.006f), grille);
-        if (!lycra) return;
+        if (!lycra) return t;
         // Bílá lycra: tři trojúhelníkové stěny od horní části tyče k patkám trojnožky
         var go = new GameObject("Lycra");
         go.transform.SetParent(t, false);
@@ -368,6 +415,7 @@ public class SceneBuilder : MonoBehaviour
         mesh.RecalculateNormals();
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
         go.AddComponent<MeshRenderer>().sharedMaterial = lycraMat ??= VisUtil.LitMat(new Color(0.92f, 0.92f, 0.9f));
+        return t;
     }
     static Material lycraMat;
 
@@ -406,6 +454,10 @@ public class SceneBuilder : MonoBehaviour
             case FixtureType.BlackPar: if (index < blackPars.Length && blackPars[index] != null) go = blackPars[index].gameObject; break;
             case FixtureType.DerbyStrobe: if (index < derbyStrobes.Length && derbyStrobes[index] != null) go = derbyStrobes[index].gameObject; break;
             case FixtureType.DoubleHelix: if (index < helixes.Length && helixes[index] != null) go = helixes[index].gameObject; break;
+            case FixtureType.EventTable: if (index == 0 && eventTable != null) go = eventTable.gameObject; break;
+            case FixtureType.DJBooth: if (index == 0 && djBooth != null) go = djBooth.gameObject; break;
+            case FixtureType.Speaker12: if (index < speakers12.Length && speakers12[index] != null) go = speakers12[index].gameObject; break;
+            case FixtureType.Speaker14: if (index < speakers14.Length && speakers14[index] != null) go = speakers14[index].gameObject; break;
         }
         if (go != null) go.SetActive(visible);
     }

@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 [Serializable]
 public class VisualizerSettings
 {
-    public int version = 7;
+    public int version = 8;
     public List<FixtureEntry> fixtures;
     public float hazeBuildRate = 0.08f;
     public float hazeDecay = 0.01f;
@@ -94,7 +94,13 @@ public class VisualizerSettings
                 f.panOffset = def.panOffset; f.tiltOffset = def.tiltOffset;
             }
         }
-        s.version = 7;
+        if (s.version < 8 && !s.fixtures.Exists(f => FixtureEntry.IsProp(f.type)))
+        {
+            // v0.5.5: stůl / booth a repro jako položky seznamu – podle toho, čí sestava je uložená
+            bool colleague = s.fixtures.Exists(f => f.type == FixtureType.DerbyStrobe || f.type == FixtureType.BlackPar || f.type == FixtureType.DoubleHelix);
+            s.fixtures.AddRange(colleague ? FixtureEntry.ColleagueProps() : FixtureEntry.OwnProps());
+        }
+        s.version = 8;
         return s;
     }
 
@@ -360,11 +366,12 @@ public class VisualizerMenu : MonoBehaviour
 
     string Overlap(int i)
     {
+        if (FixtureEntry.IsProp(stFixtures[i].type)) return null;
         if (!int.TryParse(eUni[i], out int u) || !int.TryParse(eAddr[i], out int a)) return null;
         int end = a + FixtureEntry.Channels(stFixtures[i].type, e40[i]) - 1;
         for (int j = 0; j < stFixtures.Count; j++)
         {
-            if (j == i) continue;
+            if (j == i || FixtureEntry.IsProp(stFixtures[j].type)) continue;
             if (!int.TryParse(eUni[j], out int u2) || !int.TryParse(eAddr[j], out int a2) || u2 != u) continue;
             int end2 = a2 + FixtureEntry.Channels(stFixtures[j].type, e40[j]) - 1;
             if (a <= end2 && a2 <= end) return eName[j];
@@ -949,6 +956,16 @@ public class VisualizerMenu : MonoBehaviour
             GUILayout.Label(Loc.T("name"), sLabel, GUILayout.Width(lw));
             eName[i] = GUILayout.TextField(eName[i], sField);
             GUILayout.EndHorizontal();
+
+            if (FixtureEntry.IsProp(f.type))
+            {
+                // stůl / booth / repro: bez DMX, jen zobrazení ve scéně
+                GUILayout.Space(8 * k);
+                GUILayout.Label(Loc.T("propHint"), sDim);
+                GUILayout.EndVertical();
+                GUILayout.EndHorizontal();
+                return;
+            }
 
             GUILayout.BeginHorizontal();
             GUILayout.Label(Loc.T("universe"), sLabel, GUILayout.Width(lw));
