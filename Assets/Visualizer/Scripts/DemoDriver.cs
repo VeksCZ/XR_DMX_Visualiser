@@ -91,8 +91,8 @@ public class DemoDriver : MonoBehaviour
                         l.patternSpeed = 25f;
                         break;
                     case Strobe st:
-                        st.dimmer = strobeHit ? 1 : 0;   // strobo jednou za frázi
-                        st.strobeHz = 15f;
+                        st.dimmer = bar % 4 == 3 ? 1 : 0;   // každý 4. takt LED stroba trvale svítí (ať je vidět rozmístění)
+                        st.strobeHz = 0f;
                         for (int i = 0; i < st.ledLevels.Length; i++) st.ledLevels[i] = 1f;
                         break;
                     case PixelTube t:

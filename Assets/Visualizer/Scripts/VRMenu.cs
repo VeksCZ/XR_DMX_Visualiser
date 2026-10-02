@@ -105,6 +105,7 @@ public class VRMenu : MonoBehaviour
         bg.color = cPanel;
 
         Label(panel, "DMX Visualiser", 24, 14, 440, 50, 32);
+        Label(panel, "v" + Application.version, 290, 22, 160, 40, 20, TextAnchor.MiddleLeft);   // verze aplikace
         Button(panel, "×", W - 70, 14, 50, 50, () => SetOpen(false), 34);
 
         status = Label(panel, "", 24, 74, W - 48, 64, 22, TextAnchor.UpperLeft);
@@ -257,7 +258,7 @@ public class VRMenu : MonoBehaviour
             wrist.color = live ? new Color(0.35f, 0.95f, 0.5f) : new Color(1f, 0.72f, 0.25f);
         }
         if (!open) return;
-        status.text = st + "\n" + Mathf.RoundToInt(app.Fps) + " FPS";
+        status.text = st + "\n" + Mathf.RoundToInt(app.Fps) + " FPS" + (env != null && env.Passthrough ? "   •   Passthrough: " + env.Diag : "");
         status.color = live ? new Color(0.6f, 1f, 0.7f) : new Color(1f, 0.82f, 0.5f);
         // bez úvodního symbolu (▶/■ ve vestavěném fontu nemusí být)
         demoLabel.text = System.Text.RegularExpressions.Regex.Replace(app.DemoForced ? Loc.T("stopDemo") : Loc.T("startDemo"), @"^[^\p{L}]+", "");

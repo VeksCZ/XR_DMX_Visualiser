@@ -85,11 +85,14 @@
         0.02
       ],
       "rot": [
-        40,
-        0,
+        25,
+        -22,
         0
       ],
-      "leds": 3
+      "leds": 3,
+      "beam": 20,
+      "field": 55,
+      "beamLength": 9
     },
     {
       "type": "par",
@@ -100,11 +103,14 @@
         0.02
       ],
       "rot": [
-        40,
-        0,
+        25,
+        22,
         0
       ],
-      "leds": 3
+      "leds": 3,
+      "beam": 20,
+      "field": 55,
+      "beamLength": 9
     },
     {
       "type": "laser",

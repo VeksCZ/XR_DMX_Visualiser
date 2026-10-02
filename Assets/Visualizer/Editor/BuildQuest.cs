@@ -53,7 +53,8 @@ public static class BuildQuest
         // Meta session + kamera (passthrough) pro pozdější mixed reality.
         FeatureHelpers.RefreshFeatures(BuildTargetGroup.Android);
         var oxr = OpenXRSettings.GetSettingsForBuildTargetGroup(BuildTargetGroup.Android);
-        string[] want = { "MetaQuestFeature", "OculusTouchControllerProfile", "MetaQuestTouchPlusControllerProfile", "ARSessionFeature", "ARCameraFeature", "ARPlaneFeature" };
+        string[] want = { "MetaQuestFeature", "OculusTouchControllerProfile", "MetaQuestTouchPlusControllerProfile", "ARSessionFeature", "ARCameraFeature", "ARPlaneFeature",
+            "OpenXRCompositionLayersFeature" };   // passthrough Meta OpenXR je kompoziční vrstva – bez této funkce zůstane černo
         foreach (var f in oxr.GetFeatures())
         {
             if (f == null) continue;

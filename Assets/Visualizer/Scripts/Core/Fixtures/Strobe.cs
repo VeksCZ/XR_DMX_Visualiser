@@ -1,13 +1,19 @@
 using UnityEngine;
 
-// Strobo na Gigbaru: 4 studeně bílé LED, 0-30 Hz.
+// Strobo na Gigbaru: 4 kulaté studeně bílé LED rovnoměrně po šířce čela tyče, 0-30 Hz.
 public class Strobe : MonoBehaviour
 {
     [Header("Stav (později plní DMX)")]
     [Range(0, 1)] public float dimmer;
     public float strobeHz;
     public float[] ledLevels = { 1f, 1f, 1f, 1f }; // jas jednotlivých LED (GigBar ch 27-30)
-    public float lightIntensity = 40f;
+    public float lightIntensity = 90f;
+
+    [Header("Parametry")]
+    [Tooltip("Rozteč LED (m) – všechny stejně daleko od sebe, symetricky kolem středu")]
+    public float spacing = 0.26f;
+    [Tooltip("Průměr kulaté LED (m)")]
+    public float ledSize = 0.035f;
 
     Renderer[] leds = new Renderer[4];
     Light glow;
@@ -15,11 +21,12 @@ public class Strobe : MonoBehaviour
 
     public void Build()
     {
-        // 4 malé LED těsně vedle sebe uprostřed čela tyče
-        float[] xs = { -0.045f, -0.015f, 0.015f, 0.045f };
         for (int i = 0; i < 4; i++)
-            leds[i] = VisUtil.Emitter(PrimitiveType.Cube, transform, new Vector3(xs[i], 0, 0), new Vector3(0.022f, 0.022f, 0.004f));
-        glow = VisUtil.Point(transform, new Vector3(0, 0, 0.3f), 10f);
+            leds[i] = VisUtil.Emitter(PrimitiveType.Cylinder, transform, new Vector3((i - 1.5f) * spacing, 0, 0.001f),
+                new Vector3(ledSize, 0.002f, ledSize), new Vector3(90, 0, 0));
+        // záblesk svítí jen dopředu – široký spot před čelem, aby se nerozsvítila celá konstrukce baru
+        glow = VisUtil.Spot(transform, 150f, 110f, 12f);
+        glow.transform.localPosition = new Vector3(0, 0, 0.03f);
     }
 
     void Update()
@@ -29,7 +36,7 @@ public class Strobe : MonoBehaviour
         float sum = 0f;
         for (int i = 0; i < 4; i++)
         {
-            VisUtil.SetColor(leds[i], cool, I * ledLevels[i] * 15f);
+            VisUtil.SetColor(leds[i], cool, I * ledLevels[i] * 45f);
             sum += ledLevels[i];
         }
         glow.color = cool;

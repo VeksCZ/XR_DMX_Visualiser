@@ -121,6 +121,8 @@ public static class FixtureFactory
             {
                 var p = go.AddComponent<Strobe>();
                 p.lightIntensity = Or(d.intensity, p.lightIntensity);
+                p.spacing = Or(d.spacing, p.spacing);
+                p.ledSize = Or(d.size, p.ledSize);
                 p.Build();
                 return p;
             }

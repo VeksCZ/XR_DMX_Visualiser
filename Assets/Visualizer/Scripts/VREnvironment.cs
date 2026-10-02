@@ -31,6 +31,7 @@ public class VREnvironment : MonoBehaviour
     InputAction trigger, cancel;
     Transform marker;
     bool permissionAsked;
+    float baseRenderScale = -1f;
 
     void Start()
     {
@@ -98,6 +99,14 @@ public class VREnvironment : MonoBehaviour
         // passthrough = průhledné pozadí (alfa 0), jinak černý sál
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = passthrough ? new Color(0, 0, 0, 0) : Color.black;
+        // URP se zmenšeným rozlišením (render scale 0.8) kreslí přes mezitexturu a závěrečné zvětšení
+        // zapíše alfu 1 → obraz z kamer je zakrytý černou. V passthrough proto plné rozlišení.
+        var urp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline as UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset;
+        if (urp != null)
+        {
+            if (baseRenderScale < 0f) baseRenderScale = urp.renderScale;
+            urp.renderScale = passthrough ? 1f : baseRenderScale;
+        }
         planeManager.enabled = scanned;
         foreach (var kv in planes) if (kv.Key != null) kv.Key.gameObject.SetActive(scanned);
 
@@ -191,8 +200,38 @@ public class VREnvironment : MonoBehaviour
         marker.gameObject.SetActive(false);
     }
 
+    // ---------- diagnostika passthrough (VR menu + logcat) ----------
+    public string Diag
+    {
+        get
+        {
+            var cs = camManager != null ? camManager.subsystem : null;
+            return "AR " + ARSession.state + ", " + (Loc.En ? "camera " : "kamera ") + (cs == null ? "–" : cs.running ? "OK" : (Loc.En ? "stopped" : "stojí"));
+        }
+    }
+    float nextDiag;
+
+    void LogDiag()
+    {
+        var descs = new List<XRCameraSubsystemDescriptor>();
+        SubsystemManager.GetSubsystemDescriptors(descs);
+        var names = new List<string>();
+        foreach (var d in descs) names.Add(d.id);
+        var cs = camManager != null ? camManager.subsystem : null;
+        Debug.Log("[VREnv] passthrough " + Diag + " | camManager.enabled=" + (camManager != null && camManager.enabled)
+            + " | cameraDescriptors=" + descs.Count + " [" + string.Join(", ", names) + "]"
+            + " | session=" + (session != null && session.isActiveAndEnabled) + " | bg=" + cam.backgroundColor + " | rs=" + baseRenderScale);
+        // kamera má běžet, ale stojí → zkusit ji spustit znovu
+        if (Passthrough && cs != null && !cs.running && ARSession.state >= ARSessionState.Ready)
+        {
+            Debug.Log("[VREnv] starting camera subsystem");
+            cs.Start();
+        }
+    }
+
     void Update()
     {
+        if (Passthrough && Time.time > nextDiag) { nextDiag = Time.time + 3f; LogDiag(); }
         if (!Placing || rig.RightAim == null) return;
         if (cancel.WasPressedThisFrame()) { StopPlacement(); return; }
 

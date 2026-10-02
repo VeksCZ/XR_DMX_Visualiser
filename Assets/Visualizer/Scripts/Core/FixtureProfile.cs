@@ -65,6 +65,7 @@ public class ProfilePart
     public int lensCols, lensRows;
     public int columns, rows;   // laser
     public bool mirror;         // opačný směr otáčení v demu
+    public float spacing;       // strobe: rozteč LED (m)
     // mover
     public float panRange, tiltRange;
     // tube
