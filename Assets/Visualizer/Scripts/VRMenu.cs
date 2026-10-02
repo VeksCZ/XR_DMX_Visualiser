@@ -18,7 +18,7 @@ public class VRMenu : MonoBehaviour
     VREnvironment env;
     Btn envVirtual, envScan, passBtn;
     RectTransform panel;
-    Text status, hazeText, demoLabel, feedback, wrist;
+    Text status, hazeText, lightText, demoLabel, feedback, wrist;
     readonly List<Btn> buttons = new List<Btn>();
     readonly List<Btn> camButtons = new List<Btn>();
     InputAction menuBtn, trigger;
@@ -112,10 +112,15 @@ public class VRMenu : MonoBehaviour
         var demo = Button(panel, "", 24, 146, W - 48, 64, () => app?.ToggleDemo(), 26);
         demoLabel = demo.label;
 
-        Label(panel, "Haze", 24, 230, 200, 60, 26);
-        Button(panel, "−", 280, 230, 80, 60, () => app?.AddHaze(-0.1f), 34);
-        hazeText = Label(panel, "", 366, 230, 120, 60, 26, TextAnchor.MiddleCenter);
-        Button(panel, "+", 496, 230, 80, 60, () => app?.AddHaze(0.1f), 34);
+        // Haze a světlo v sále vedle sebe
+        Label(panel, "Haze", 24, 230, 80, 60, 24);
+        Button(panel, "−", 100, 230, 50, 60, () => app?.AddHaze(-0.1f), 34);
+        hazeText = Label(panel, "", 152, 230, 76, 60, 22, TextAnchor.MiddleCenter);
+        Button(panel, "+", 230, 230, 50, 60, () => app?.AddHaze(0.1f), 34);
+        Label(panel, Loc.T("vrLight"), 300, 230, 96, 60, 24);
+        Button(panel, "−", 396, 230, 50, 60, () => app?.AddRoomLight(-0.1f), 34);
+        lightText = Label(panel, "", 448, 230, 76, 60, 22, TextAnchor.MiddleCenter);
+        Button(panel, "+", 526, 230, 50, 60, () => app?.AddRoomLight(0.1f), 34);
 
         Label(panel, Loc.T("camera"), 24, 304, 300, 36, 22);
         int n = app != null ? app.CameraCount : 0;
@@ -257,6 +262,7 @@ public class VRMenu : MonoBehaviour
         // bez úvodního symbolu (▶/■ ve vestavěném fontu nemusí být)
         demoLabel.text = System.Text.RegularExpressions.Regex.Replace(app.DemoForced ? Loc.T("stopDemo") : Loc.T("startDemo"), @"^[^\p{L}]+", "");
         hazeText.text = app.HazePct + " %";
+        lightText.text = app.RoomLightPct + " %";
         if (env != null)
         {
             passBtn.label.text = "Passthrough: " + (env.Passthrough ? Loc.T("vrOn") : Loc.T("vrOff"));

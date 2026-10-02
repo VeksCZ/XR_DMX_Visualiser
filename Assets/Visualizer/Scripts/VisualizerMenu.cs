@@ -24,6 +24,7 @@ public class VisualizerSettings
     public bool vrScannedRoom = false;     // Quest: místo virtuálního sálu naskenovaná místnost (room setup)
     public bool panelOpen = true;
     public bool panelMinimized = false;
+    public float roomLight = 0f;           // teplé světlo v sále (0–1)
 
     // Windows: portable – settings.json leží ve složce s .exe (přenáší se se složkou, aktualizace ho nepřepíše).
     // Když do složky nejde zapisovat (např. Program Files), zůstává v persistentDataPath.
@@ -180,6 +181,7 @@ public class VisualizerMenu : MonoBehaviour
 #endif
         s = VisualizerSettings.Load();
         Loc.En = s.language == "en";
+        scene.roomLight = s.roomLight;
 
         Application.runInBackground = true;
         Application.targetFrameRate = VRRig.IsVR ? -1 : 60;   // v brýlích určuje snímky headset (72–120 Hz)
@@ -723,6 +725,8 @@ public class VisualizerMenu : MonoBehaviour
     public float PacketsPerSec => pps;
     public float Fps => fps;
     public int HazePct => HazePercent();
+    public int RoomLightPct => Mathf.RoundToInt(s.roomLight * 100);
+    public void AddRoomLight(float d) { s.roomLight = Mathf.Clamp01(s.roomLight + d); scene.roomLight = s.roomLight; s.Save(); }
     public int CameraCount => cams != null ? cams.Length : 0;
     public int CurrentCamera => s != null ? s.cameraPreset : 0;
     public string CameraName(int i) => Loc.T(cams[i].key);
@@ -784,6 +788,9 @@ public class VisualizerMenu : MonoBehaviour
             GUILayout.Label(Loc.F("hazeDemo", HazePercent()), sHead);
             scene.haze = GUILayout.HorizontalSlider(scene.haze, 0f, 3f);
         }
+        GUILayout.Label(Loc.F("roomLight", RoomLightPct), sHead);
+        s.roomLight = GUILayout.HorizontalSlider(s.roomLight, 0f, 1f);
+        scene.roomLight = s.roomLight;
         GUILayout.Space(12 * k);
 
         if (patch != null)

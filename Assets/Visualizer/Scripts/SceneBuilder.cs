@@ -45,8 +45,49 @@ public class SceneBuilder : MonoBehaviour
         if (GetComponent<VisualizerMenu>() == null) gameObject.AddComponent<VisualizerMenu>();
     }
 
+    // Světlo v sále (0–1): teplé stropní osvětlení, které na svatbách svítí, aby lidi viděli na stoly
+    [Range(0, 1)] public float roomLight = 0f;
+    readonly System.Collections.Generic.List<Light> houseLights = new System.Collections.Generic.List<Light>();
+    static readonly Color warm = new Color(1f, 0.72f, 0.42f);   // ~2700 K
+    static readonly Color darkAmbient = new Color(0.02f, 0.02f, 0.025f);
+    float appliedRoomLight = -1f;
+
+    void BuildHouseLights(Transform parent)
+    {
+        float h = ceiling - 0.3f;
+        foreach (float x in new[] { -roomWidth * 0.3f, 0f, roomWidth * 0.3f })
+            foreach (float z in new[] { -roomDepth * 0.15f, roomDepth * 0.25f })
+            {
+                var go = new GameObject("House light");
+                go.transform.SetParent(parent, false);
+                go.transform.localPosition = new Vector3(x, h, z);
+                var l = go.AddComponent<Light>();
+                l.type = LightType.Point;
+                l.range = 9f;
+                l.color = warm;
+                l.shadows = LightShadows.None;
+                l.intensity = 0f;
+                l.enabled = false;
+                houseLights.Add(l);
+            }
+    }
+
+    void ApplyRoomLight()
+    {
+        if (Mathf.Approximately(appliedRoomLight, roomLight)) return;
+        appliedRoomLight = roomLight;
+        float v = roomLight * roomLight;   // posuvník vnímaně lineárně
+        foreach (var l in houseLights)
+        {
+            l.enabled = v > 0.001f;
+            l.intensity = v * 6f;
+        }
+        RenderSettings.ambientLight = darkAmbient + warm * (v * 0.12f);
+    }
+
     void Update()
     {
+        ApplyRoomLight();
         Shader.SetGlobalFloat("_Haze", haze);
         Shader.SetGlobalFloat("_FloorY", 0f);
         Shader.SetGlobalFloat("_CeilingY", ceilingOverride > 0f ? ceilingOverride : ceiling);
@@ -80,6 +121,7 @@ public class SceneBuilder : MonoBehaviour
         VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(0, ceiling * 0.5f, -backZ), new Vector3(w, ceiling, 0.1f), VisUtil.WallMat);
         VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(-w * 0.5f, ceiling * 0.5f, 0), new Vector3(0.1f, ceiling, d), VisUtil.WallMat);
         VisUtil.Prim(PrimitiveType.Cube, shell, new Vector3(w * 0.5f, ceiling * 0.5f, 0), new Vector3(0.1f, ceiling, d), VisUtil.WallMat);
+        BuildHouseLights(shell);   // patří k virtuálnímu sálu – v passthrough svítí skutečná místnost
 
         // Nenápadný křížek ve středu parketu (cíl kalibrace hlav)
         var fc = danceFloorCenter + new Vector3(0, 0.002f, 0);

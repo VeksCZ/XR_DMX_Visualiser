@@ -252,6 +252,7 @@ public class QuestTools : MonoBehaviour
         q.fixtures = pc.fixtures;
         q.hazeBuildRate = pc.hazeBuildRate;
         q.hazeDecay = pc.hazeDecay;
+        q.roomLight = pc.roomLight;
         q.language = pc.language;
         q.version = pc.version;
         File.WriteAllText(local, JsonUtility.ToJson(q, true));

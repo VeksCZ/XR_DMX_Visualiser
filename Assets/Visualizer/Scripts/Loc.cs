@@ -31,6 +31,8 @@ public static class Loc
         { "stopDemo", new[] { "■  Zastavit demo", "■  Stop demo" } },
         { "demoHint", new[] { "Demo běží samo, dokud nepřijdou data ze SoundSwitche.", "The demo runs by itself until data arrives from SoundSwitch." } },
         { "hazeLive", new[] { "Haze v sále: {0} %", "Haze in the room: {0} %" } },
+        { "roomLight", new[] { "Světlo v sále: {0} %", "Room light: {0} %" } },
+        { "vrLight", new[] { "Světlo", "Light" } },
         { "hazeDemo", new[] { "Viditelnost paprsků (haze): {0} %", "Beam visibility (haze): {0} %" } },
         { "liveFrom", new[] { "Přijímám data od {0}", "Receiving data from {0}" } },
         { "demoRunning", new[] { "Běží demo – žádná data", "Demo running – no data" } },

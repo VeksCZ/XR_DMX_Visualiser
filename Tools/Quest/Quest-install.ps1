@@ -84,7 +84,7 @@ if ((Test-Path $pcSettings) -and (Ask "Přenést nastavení světel z PC do Ques
         $q.cameraPreset = 0
     }
     # z PC: patch světel, kalibrace, hazer, jazyk; VR volby v Questu zůstanou
-    foreach ($k in 'fixtures', 'hazeBuildRate', 'hazeDecay', 'language', 'version') {
+    foreach ($k in 'fixtures', 'hazeBuildRate', 'hazeDecay', 'roomLight', 'language', 'version') {
         if ($q.PSObject.Properties[$k]) { $q.$k = $pc.$k } else { $q | Add-Member -NotePropertyName $k -NotePropertyValue $pc.$k }
     }
     [IO.File]::WriteAllText($tmp, ($q | ConvertTo-Json -Depth 10))
