@@ -143,7 +143,8 @@ public class SceneBuilder : MonoBehaviour
         VisUtil.Prim(PrimitiveType.Cube, room, fc, new Vector3(0.03f, 0.002f, 0.4f), markMat);
 
         // DJ stolek
-        VisUtil.Prim(PrimitiveType.Cube, room, new Vector3(0, 0.45f, backZ + 2f), new Vector3(1.8f, 0.9f, 0.7f), VisUtil.LitMat(new Color(0.8f, 0.8f, 0.8f)));
+        tableMatLight = VisUtil.LitMat(new Color(0.8f, 0.8f, 0.8f));
+        djTable = VisUtil.Prim(PrimitiveType.Cube, room, new Vector3(0, 0.45f, backZ + 2f), new Vector3(1.8f, 0.9f, 0.7f), tableMatLight).GetComponent<Renderer>();
     }
 
     void BuildRig()
@@ -211,21 +212,28 @@ public class SceneBuilder : MonoBehaviour
         BuildColleagueTruss(rig);
     }
 
-    // Kolegova rampa: dvě nohy u zadní hrany DJ stolku, na obou stranách kousek přesazené,
-    // nahoře příčka. Derby nahoře na krajích (svítí nahoru), pary visí blíž ke středu, helix uprostřed.
+    // Kolegova rampa (černá): dvě kulaté stativové tyče jako prodloužení zadních nohou DJ stolku,
+    // nahoře dvě hranaté tyče nad sebou spojené 4 svislými výztuhami.
+    // Derby nahoře na krajích, pary visí pod spodní tyčí blíž ke středu, helixy uprostřed nahoře.
+    Renderer djTable;
+    Material tableMatLight;
+
     void BuildColleagueTruss(Transform rig)
     {
-        const float h = 2.3f, legX = 1.1f, bar = 0.15f;
-        float tz = backZ + 2f - 0.35f - 0.05f;   // těsně za zadní hranou stolku
+        const float h = 2.3f, legX = 0.87f, prof = 0.04f, gap = 0.25f;   // výška horní tyče, profil 4×4 cm, rozteč tyčí
+        float tz = backZ + 2f - 0.35f + 0.03f;   // v zadních nohách stolku
+        float barLow = h - gap;
         truss = new GameObject("Truss (kolega)").transform;
         truss.SetParent(rig, false);
-        var m = VisUtil.LitMat(new Color(0.55f, 0.55f, 0.58f));   // hliníkový truss
+        var m = VisUtil.BodyMat;
         foreach (float x in new[] { -legX, legX })
-        {
-            VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(x, h * 0.5f, tz), new Vector3(bar, h, bar), m);
-            VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(x, 0.005f, tz), new Vector3(0.5f, 0.01f, 0.5f), VisUtil.BodyMat);
-        }
-        VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(0, h - bar * 0.5f, tz), new Vector3(2 * legX + bar, bar, bar), m);
+            VisUtil.Prim(PrimitiveType.Cylinder, truss, new Vector3(x, h * 0.5f, tz), new Vector3(0.035f, h * 0.5f, 0.035f), m); // stativová tyč
+        float len = 2 * legX + 0.1f;
+        VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(0, h - prof * 0.5f, tz), new Vector3(len, prof, prof), m);        // horní tyč
+        VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(0, barLow - prof * 0.5f, tz), new Vector3(len, prof, prof), m);   // spodní tyč
+        foreach (float x in new[] { -0.6f, -0.2f, 0.2f, 0.6f })                                                                  // výztuhy
+            VisUtil.Prim(PrimitiveType.Cube, truss, new Vector3(x, barLow + gap * 0.5f - prof * 0.5f, tz), new Vector3(0.025f, gap - prof, 0.025f), m);
+        const float bar = gap + prof;   // pary visí pod spodní tyčí
 
         for (int i = 0; i < 2; i++)
         {
@@ -233,7 +241,7 @@ public class SceneBuilder : MonoBehaviour
             // derby nahoře na krajích, míří dopředu na parket (lehce dolů)
             var dgo = new GameObject(i == 0 ? "DerbyStrobe L" : "DerbyStrobe R");
             dgo.transform.SetParent(truss, false);
-            dgo.transform.localPosition = new Vector3(s * 0.95f, h + 0.07f, tz);
+            dgo.transform.localPosition = new Vector3(s * 0.75f, h + 0.07f, tz);
             dgo.transform.localEulerAngles = new Vector3(15f, 0, 0);
             var ds = dgo.AddComponent<DerbyStrobe>();
             ds.Build();
@@ -295,6 +303,8 @@ public class SceneBuilder : MonoBehaviour
             if (c.GetComponent<ParLight>() == null && c.GetComponent<DerbyStrobe>() == null && c.GetComponent<Helix>() == null)
                 c.gameObject.SetActive(any);
         }
+        // kolegův stůl je černý jako jeho rampa
+        if (djTable != null) djTable.sharedMaterial = any ? VisUtil.BodyMat : tableMatLight;
         if (helixes[0] != null) helixes[0].transform.localPosition = new Vector3(hc > 1 ? -0.25f : 0f, helixes[0].transform.localPosition.y, helixes[0].transform.localPosition.z);
         if (helixes[1] != null) helixes[1].transform.localPosition = new Vector3(0.25f, helixes[1].transform.localPosition.y, helixes[1].transform.localPosition.z);
     }
