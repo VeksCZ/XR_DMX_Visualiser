@@ -210,6 +210,7 @@ public class SceneBuilder : MonoBehaviour
         }
 
         BuildColleagueTruss(rig);
+        BuildSpeakers(rig);
     }
 
     // Kolegova rampa (černá): dvě kulaté stativové tyče jako prodloužení zadních nohou DJ stolku,
@@ -305,9 +306,70 @@ public class SceneBuilder : MonoBehaviour
         }
         // kolegův stůl je černý jako jeho rampa
         if (djTable != null) djTable.sharedMaterial = any ? VisUtil.BodyMat : tableMatLight;
+        // reprobedny podle sestavy: kolega 14" bez lycry, moje 12" s bílou lycrou
+        if (speakersOwn != null) speakersOwn.gameObject.SetActive(!any);
+        if (speakersColleague != null) speakersColleague.gameObject.SetActive(any);
         if (helixes[0] != null) helixes[0].transform.localPosition = new Vector3(hc > 1 ? -0.25f : 0f, helixes[0].transform.localPosition.y, helixes[0].transform.localPosition.z);
         if (helixes[1] != null) helixes[1].transform.localPosition = new Vector3(0.25f, helixes[1].transform.localPosition.y, helixes[1].transform.localPosition.z);
     }
+
+    // ---- Reproduktory ----
+    // Moje: 2× FBT ProMaxX 12A na trojnožce s bílou lycrou (scrim přes stativ, repro nad ní zůstává vidět).
+    // Kolega: 2× FBT ProMaxX 14A na černé trojnožce bez lycry. Rozměry přibližné (š × v × h).
+    Transform speakersOwn, speakersColleague;
+
+    void BuildSpeakers(Transform rig)
+    {
+        float z = backZ + 2.2f, x = 3.3f;
+        speakersOwn = new GameObject("Speakers (moje)").transform;
+        speakersOwn.SetParent(rig, false);
+        speakersColleague = new GameObject("Speakers (kolega)").transform;
+        speakersColleague.SetParent(rig, false);
+        foreach (float s in new[] { -1f, 1f })
+        {
+            Speaker(speakersOwn, new Vector3(s * x, 0, z), s, new Vector3(0.39f, 0.62f, 0.35f), 1.55f, true);
+            Speaker(speakersColleague, new Vector3(s * x, 0, z), s, new Vector3(0.43f, 0.70f, 0.40f), 1.5f, false);
+        }
+        speakersColleague.gameObject.SetActive(false);
+    }
+
+    void Speaker(Transform parent, Vector3 pos, float side, Vector3 size, float standH, bool lycra)
+    {
+        var t = Tripod(parent, pos, standH);
+        // natočit mírně k parketu
+        t.localRotation = Quaternion.Euler(0, -side * 12f, 0);
+        var box = new GameObject("FBT ProMaxX").transform;
+        box.SetParent(t, false);
+        box.localPosition = new Vector3(0, standH + size.y * 0.5f, 0);
+        VisUtil.Prim(PrimitiveType.Cube, box, Vector3.zero, size, VisUtil.BodyMat);
+        // kovová mřížka zepředu (lehce světlejší) a logo pás
+        var grille = VisUtil.LitMat(new Color(0.11f, 0.11f, 0.12f));
+        VisUtil.Prim(PrimitiveType.Cube, box, new Vector3(0, -size.y * 0.06f, size.z * 0.5f + 0.003f), new Vector3(size.x * 0.9f, size.y * 0.82f, 0.006f), grille);
+        if (!lycra) return;
+        // Bílá lycra: tři trojúhelníkové stěny od horní části tyče k patkám trojnožky
+        var go = new GameObject("Lycra");
+        go.transform.SetParent(t, false);
+        var top = new Vector3(0, standH - 0.03f, 0);
+        var feet = new Vector3[3];
+        for (int i = 0; i < 3; i++) feet[i] = Quaternion.Euler(0, i * 120f, 0) * Vector3.forward * 0.6f + Vector3.up * 0.01f;
+        var v = new System.Collections.Generic.List<Vector3>();
+        var tri = new System.Collections.Generic.List<int>();
+        for (int i = 0; i < 3; i++)
+        {
+            var a = feet[i]; var b = feet[(i + 1) % 3];
+            int k = v.Count;
+            v.Add(top); v.Add(a); v.Add(b);       // vnější strana
+            v.Add(top); v.Add(a); v.Add(b);       // vnitřní strana (vlastní vrcholy kvůli normálám)
+            tri.AddRange(new[] { k, k + 2, k + 1, k + 3, k + 4, k + 5 });
+        }
+        var mesh = new Mesh { name = "Lycra" };
+        mesh.SetVertices(v);
+        mesh.SetTriangles(tri, 0);
+        mesh.RecalculateNormals();
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>().sharedMaterial = lycraMat ??= VisUtil.LitMat(new Color(0.92f, 0.92f, 0.9f));
+    }
+    static Material lycraMat;
 
     Transform Tripod(Transform parent, Vector3 pos, float h)
     {
