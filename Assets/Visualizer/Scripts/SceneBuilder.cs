@@ -52,18 +52,29 @@ public class SceneBuilder : MonoBehaviour
     static readonly Color darkAmbient = new Color(0.02f, 0.02f, 0.025f);
     float appliedRoomLight = -1f;
 
+    readonly System.Collections.Generic.List<Renderer> houseFixtures = new System.Collections.Generic.List<Renderer>();
+
+    // Kulatá stropní svítidla (6×) – světlo jde shora dolů širokým kuželem, strop nemá světelné fleky
     void BuildHouseLights(Transform parent)
     {
-        float h = ceiling - 0.3f;
+        float h = ceiling - 0.04f;
+        var rim = VisUtil.LitMat(new Color(0.35f, 0.33f, 0.3f));
         foreach (float x in new[] { -roomWidth * 0.3f, 0f, roomWidth * 0.3f })
             foreach (float z in new[] { -roomDepth * 0.15f, roomDepth * 0.25f })
             {
+                // těleso + svítící difuzor
+                VisUtil.Prim(PrimitiveType.Cylinder, parent, new Vector3(x, h, z), new Vector3(0.62f, 0.03f, 0.62f), rim);
+                houseFixtures.Add(VisUtil.Emitter(PrimitiveType.Cylinder, parent, new Vector3(x, h - 0.035f, z), new Vector3(0.55f, 0.01f, 0.55f)));
+
                 var go = new GameObject("House light");
                 go.transform.SetParent(parent, false);
-                go.transform.localPosition = new Vector3(x, h, z);
+                go.transform.localPosition = new Vector3(x, h - 0.08f, z);
+                go.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // svítí dolů
                 var l = go.AddComponent<Light>();
-                l.type = LightType.Point;
-                l.range = 9f;
+                l.type = LightType.Spot;
+                l.spotAngle = 140f;
+                l.innerSpotAngle = 60f;
+                l.range = ceiling + 6f;
                 l.color = warm;
                 l.shadows = LightShadows.None;
                 l.intensity = 0f;
@@ -80,9 +91,11 @@ public class SceneBuilder : MonoBehaviour
         foreach (var l in houseLights)
         {
             l.enabled = v > 0.001f;
-            l.intensity = v * 6f;
+            l.intensity = v * 40f;
         }
-        RenderSettings.ambientLight = darkAmbient + warm * (v * 0.12f);
+        foreach (var f in houseFixtures) VisUtil.SetColor(f, warm, v * 6f);
+        // rozptýlené světlo odražené od stěn a stropu, aby nebyly úplně černé kouty
+        RenderSettings.ambientLight = darkAmbient + warm * (v * 0.35f);
     }
 
     void Update()
