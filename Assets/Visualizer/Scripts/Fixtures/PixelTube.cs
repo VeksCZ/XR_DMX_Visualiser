@@ -33,7 +33,7 @@ public class PixelTube : MonoBehaviour
             segs[i] = VisUtil.Emitter(PrimitiveType.Cylinder, transform,
                 new Vector3(0, h * (i + 0.5f), 0), new Vector3(diameter, h * 0.5f * 0.97f, diameter));
             // mléčný difuzor: ve vypnutém stavu nevýrazně šedobílý, se světlem v sále světlejší
-            VisUtil.SetOffLook(segs[i], new Color(0.05f, 0.05f, 0.055f), new Color(0.75f, 0.75f, 0.78f));
+            VisUtil.SetOffLook(segs[i], new Color(0.13f, 0.13f, 0.135f), new Color(0.8f, 0.8f, 0.82f));
         }
 
         glow = VisUtil.Point(transform, new Vector3(0, length * 0.5f, 0), 5f);

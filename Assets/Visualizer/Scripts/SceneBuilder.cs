@@ -244,9 +244,14 @@ public class SceneBuilder : MonoBehaviour
             var go = new GameObject("Tube " + (i + 1));
             go.transform.SetParent(rig, false);
             go.transform.localPosition = new Vector3(tx[i], 0.25f, backZ + 1.6f);
-            // černý stojánek s patkou a malou krabičkou s ovládáním a displejem pod tubou
-            VisUtil.Prim(PrimitiveType.Cylinder, go.transform, new Vector3(0, -0.24f, 0), new Vector3(0.2f, 0.01f, 0.2f), VisUtil.BodyMat);
-            VisUtil.Prim(PrimitiveType.Cylinder, go.transform, new Vector3(0, -0.17f, 0), new Vector3(0.03f, 0.07f, 0.03f), VisUtil.BodyMat);
+            // černý stojánek – malá trojnožka – a krabička s ovládáním a displejem pod tubou
+            VisUtil.Prim(PrimitiveType.Cylinder, go.transform, new Vector3(0, -0.15f, 0), new Vector3(0.025f, 0.05f, 0.025f), VisUtil.BodyMat);
+            for (int k = 0; k < 3; k++)
+            {
+                var dir = Quaternion.Euler(0, k * 120f, 0) * Vector3.forward;
+                var leg = VisUtil.Prim(PrimitiveType.Cylinder, go.transform, dir * 0.06f + Vector3.up * -0.21f, new Vector3(0.012f, 0.07f, 0.012f), VisUtil.BodyMat);
+                leg.localRotation = Quaternion.FromToRotation(Vector3.up, (Vector3.up * 0.08f - dir * 0.11f).normalized);
+            }
             VisUtil.Prim(PrimitiveType.Cube, go.transform, new Vector3(0, -0.05f, 0), new Vector3(0.06f, 0.1f, 0.06f), VisUtil.BodyMat);
             var t = go.AddComponent<PixelTube>();
             t.segments = Mathf.Max(16, tubeSegments); // jemnější dělení kvůli efektům tuby (40ch se roztáhne)
