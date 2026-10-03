@@ -23,6 +23,10 @@ public class MovingHead : MonoBehaviour
     [Tooltip("Viditelnost paprsku v hazu (32 W spot je nejsilnější světlo rigu)")]
     public float beamBrightness = 1.8f;
 
+    [Tooltip("Patka pod jhem (stojící hlava); bez ní je jho přímo na liště")]
+    public bool mountBase = true;
+    float YokeY => mountBase ? 0.06f : 0f;
+
     Transform yoke, head;
     Renderer beam, lens;
     Light spot;
@@ -32,12 +36,12 @@ public class MovingHead : MonoBehaviour
     public void Build()
     {
         var m = VisUtil.BodyMat;
-        // Patka
-        VisUtil.Prim(PrimitiveType.Cube, transform, new Vector3(0, 0.03f, 0), new Vector3(0.16f, 0.06f, 0.16f), m);
+        // Patka (u GigBaru není – jho je přímo na liště)
+        if (mountBase) VisUtil.Prim(PrimitiveType.Cube, transform, new Vector3(0, 0.03f, 0), new Vector3(0.16f, 0.06f, 0.16f), m);
         // Jho (pan)
         yoke = new GameObject("Yoke").transform;
         yoke.SetParent(transform, false);
-        yoke.localPosition = new Vector3(0, 0.06f, 0);
+        yoke.localPosition = new Vector3(0, YokeY, 0);
         VisUtil.Prim(PrimitiveType.Cube, yoke, new Vector3(0, 0.01f, 0), new Vector3(0.19f, 0.02f, 0.08f), m);
         VisUtil.Prim(PrimitiveType.Cube, yoke, new Vector3(-0.088f, 0.1f, 0), new Vector3(0.015f, 0.2f, 0.08f), m);
         VisUtil.Prim(PrimitiveType.Cube, yoke, new Vector3(0.088f, 0.1f, 0), new Vector3(0.015f, 0.2f, 0.08f), m);
@@ -58,7 +62,7 @@ public class MovingHead : MonoBehaviour
     // Úhly modelu (yaw jha, tilt od osy podstavy), při kterých paprsek míří do bodu target.
     public void AimAngles(Vector3 target, out float yaw, out float tilt)
     {
-        Vector3 pivot = transform.TransformPoint(new Vector3(0, 0.2f, 0)); // osa tiltu (jho 0.06 + hlava 0.14)
+        Vector3 pivot = transform.TransformPoint(new Vector3(0, YokeY + 0.14f, 0)); // osa tiltu (jho + hlava 0.14)
         Vector3 l = transform.InverseTransformDirection(target - pivot).normalized;
         tilt = Mathf.Acos(Mathf.Clamp(l.y, -1f, 1f)) * Mathf.Rad2Deg;
         yaw = Mathf.Atan2(l.x, l.z) * Mathf.Rad2Deg;

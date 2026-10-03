@@ -44,6 +44,7 @@ public static class FixtureFactory
             go.transform.SetParent(parent, false);
             go.transform.localPosition = ProfileUtil.V(d.pos);
             go.transform.localEulerAngles = ProfileUtil.V(d.rot);
+            if (d.scale > 0f) go.transform.localScale = Vector3.one * d.scale;   // zmenšení / zvětšení celé části
             fi.parts[i] = BuildPart(go, d);
         }
     }
@@ -79,6 +80,8 @@ public static class FixtureFactory
                 p.brightness = Or(d.brightness, p.brightness);
                 p.lensCols = Or(d.lensCols, p.lensCols);
                 p.lensRows = Or(d.lensRows, p.lensRows);
+                if (d.box != null && d.box.Length >= 3) p.bodySize = ProfileUtil.V(d.box);
+                p.squareLenses = d.housing == "square";
                 p.Build();
                 if (d.mirror) p.rotationSpeed = -p.rotationSpeed;
                 return p;
@@ -92,6 +95,7 @@ public static class FixtureFactory
                 p.beamBrightness = Or(d.brightness, p.beamBrightness);
                 p.panRange = Or(d.panRange, p.panRange);
                 p.tiltRange = Or(d.tiltRange, p.tiltRange);
+                p.mountBase = d.housing != "nobase";
                 p.Build();
                 return p;
             }

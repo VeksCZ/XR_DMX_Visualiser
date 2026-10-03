@@ -53,6 +53,7 @@ public class ProfilePart
     public string name;
     public float[] pos;         // m, vůči světlu
     public float[] rot;         // ° (x, y, z)
+    public float scale;         // měřítko celé části (0 = 1)
     // par
     public string housing;      // round / box
     public float size;
